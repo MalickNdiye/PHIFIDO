@@ -1,0 +1,6 @@
+name: DeePhage
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:

@@ -1,0 +1,6 @@
+name: plass
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - genomad

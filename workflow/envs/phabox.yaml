@@ -1,0 +1,8 @@
+name: phabox2
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+  - jyshang2
+dependencies:
+  - phabox=2.1.9

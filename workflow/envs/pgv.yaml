@@ -1,0 +1,7 @@
+name: pgv-mummer
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - pygenomeviz
+  - mummer

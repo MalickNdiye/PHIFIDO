@@ -1,0 +1,699 @@
+configfile:"../config/config.yaml"
+
+#################### SET UP Variables #######################################
+import os
+import pandas as pd
+import numpy as np
+
+############### Functions ###################################################
+def concat_tables(tables_list, skip=0, delimiter="\t", head=0, names=False, names_list=[], add={}):
+    # this function concatenates a list of tables
+    # tables_list: list of tables to concatenate
+    # returns: concatenated table
+    df_list=[]
+    count=0
+    for t in tables_list:
+        
+        if os.path.getsize(t) <= 1:
+            continue
+
+        # open file skipping "skip lines" and adding header
+        if names:
+            df=pd.read_csv(t,  skiprows=skip, sep=delimiter, header=head, names=names_list)
+        else:
+            df=pd.read_csv(t,  skiprows=skip, sep=delimiter, header=head)
+         
+         # "add" is a dictionary with columns to add
+         # key: column name, value: list of values to add, each value correspond to a daframe in tables_list
+        for key, value in add.items():
+            df[key]=value[count]
+        count+=1
+
+        df_list.append(df)
+
+    df=pd.concat(df_list)
+    
+    return(df)
+
+###############################  Rules #######################################
+rule all:
+    input:
+        "../results/vMAGs/QC/Checkv",
+        "../results/vMAGs/vMAGs_contamination"
+
+
+
+################### Data Validation ##########################################
+
+# This rule takes the concatenated raw reads files and runs them against the krakend db
+rule run_Krakern2:
+    input:
+        R1=lambda wildcards: config["samples"][wildcards.sample][0],
+        R2=lambda wildcards: config["samples"][wildcards.sample][1]
+    output:
+        tab=temp("../results/data_validation/kraken2_output/{sample}_kraken2_report.kraken"),
+        rep=temp("../results/data_validation/kraken2_output/Reports/{sample}_kraken2_report")
+    conda:
+        "envs/Kraken2.yaml"
+    threads: 8
+    log:
+        "logs/data_validation/kraken2/run/{sample}_kraken2.log"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 100000,
+        runtime= "40m"
+    params:
+        db="/users/mndiaye1/beemicrophage_dir/PHOSTER/workflow/resources/default_DBs/230228_costum_kraken2db_new"
+    shell:
+        "kraken2 --use-names --threads {threads} --db {params.db} --fastq-input --report {output.rep}  --gzip-compressed --paired {input.R1} {input.R2}  > {output.tab}"
+
+# This rule parses the kraken report and returns a summary of the results
+rule parse_kraken_report:
+    input:
+        expand("../results/data_validation/kraken2_output/Reports/{sample}_kraken2_report", sample=config["samples"])
+    output:
+        "../results/data_validation/kraken2_output/Summary/all_samples_report.txt"
+    threads: 2
+    params:
+        "../results/data_validation/kraken2_output/"
+    log:
+        "logs/data_validation/kraken2/parsing/report_parser_kraken2.log"
+    resources:
+        account = "pengel_beemicrophage",
+        runtime= "15m"
+    script:
+        "scripts/data_validation/parse_kraken_report.py"
+
+# This rule trims the raw reads using trimmomatic
+rule rawreads_trimming:
+    input:
+        R1=lambda wildcards: config["samples"][wildcards.sample][0],
+        R2=lambda wildcards: config["samples"][wildcards.sample][1]
+    output:
+        R1_paired="../data/trimmed_reads/{sample}_R1_paired.fastq.gz",
+        R2_paired="../data/trimmed_reads/{sample}_R2_paired.fastq.gz",
+        R1_unpaired="../data/trimmed_reads/{sample}_R1_unpaired.fastq.gz",
+        R2_unpaired="../data/trimmed_reads/{sample}_R2_unpaired.fastq.gz"
+    threads: 8
+    params:
+        nextera="../data/references/short_RefSeqs/NexteraPE-PE.fa",
+        q=25,
+        min_length=40
+    log:
+        "logs/data_validation/trimming/{sample}_trimming.log"
+    conda:
+        "envs/trimmomatic.yaml"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 6000,
+        runtime= "1h"
+    shell:
+        "trimmomatic PE -phred33 -threads {threads} {input.R1} {input.R2} \
+         {output.R1_paired} {output.R1_unpaired} {output.R2_paired} {output.R2_unpaired} \
+         ILLUMINACLIP:{params.nextera}:2:30:10 \
+         LEADING:{params.q} TRAILING:{params.q} MINLEN:{params.min_length}"
+
+def get_files_commas(path, sep=",", remove_hidden=True):
+    file_l=os.listdir(path)
+
+    if remove_hidden:
+        file_l=[f for f in file_l if not f.startswith(".")]
+
+    file_l2=[]
+    for f in file_l:
+        file_l2.append(os.path.join(path,f))
+    out=sep.join(file_l2)
+    return(out)
+
+# This rule filters the reads against a database of bacterial host genomes
+rule filter_bifido_paired:
+    input:
+        R1="../data/trimmed_reads/{sample}_R1_paired.fastq.gz",
+        R2="../data/trimmed_reads/{sample}_R2_paired.fastq.gz"
+    output: # I don't need the sam of the mapping so I delete them immediatly
+        unmapped_R1="../data/filtered_reads/{sample}_R1_filt.fastq.gz", # these are the filtered reads
+        unmapped_R2="../data/filtered_reads/{sample}_R2_filt.fastq.gz",
+        refstats="../results/data_validation/filtered_reads/filt_mappings_stats/{sample}_refstats.out",
+        bincov="../results/data_validation/filtered_reads/filt_mappings_stats/coverage/{sample}_bincov.txt"
+    conda:
+        "envs/mapping.yaml"
+    threads: 10
+    params:
+        ref_bifido=get_files_commas("../data/references/Bifido_genomes"),
+        dir="../results/data_validation/filtered_reads/discarded/{sample}_discarded/",
+        xmx="50g"
+    log:
+        "logs/data_validation/filter_bifido_reads/{sample}_HF.log"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 100000,
+        runtime= "30m"
+    shell:
+        "bbsplit.sh in1={input.R1} in2={input.R2} ref={params.ref_bifido} \
+        basename={params.dir}/{wildcards.sample}_HF_discarded_%.sam \
+        refstats={output.refstats} rebuild=f nodisk=t \
+        outu1={output.unmapped_R1} outu2={output.unmapped_R2} nzo=f -Xmx{params.xmx} threads={threads} \
+        bincov={output.bincov}"
+
+
+# This rule parses the refstats file and returns a summary of the results
+rule parse_filtering_refstats:
+    input:
+        files=expand("../results/data_validation/filtered_reads/filt_mappings_stats/{sample}_refstats.out", sample=config["samples"])
+    output:
+        "../results/data_validation/filtered_reads/filt_mappings_stats/bifido_reads_filtering_refstats.txt"
+    threads: 2
+    log:
+        "logs/data_validation/HF/HF_refstats_parsing.log"
+    params:
+        sams=expand("{sample}", sample=config["samples"])
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 500,
+        runtime= "15m"
+    run:
+        import pandas as pd
+        df=concat_tables(input.files, skip=0, delimiter="\t", head=0, names_list=[], add={"sample":params.sams})
+        df.to_csv(output[0], sep="\t", index=False)
+
+
+############################### count_reads ##################################
+# After trimming and host filtering the reads, I wanna know how much I lost in
+# Terms of reads and bases
+
+
+# this rules returns a table of read count before and after trimming
+rule count_reads_qc:
+    input:
+        preT=lambda wildcards: config["samples"][wildcards.sample][0],
+        postT="../data/trimmed_reads/{sample}_R1_paired.fastq.gz",
+        postF="../data/filtered_reads/{sample}_R1_filt.fastq.gz"
+    output:
+        temp("../results/data_validation/QC/{sample}_read_count.txt")
+    log:
+        "logs/data_validation/QC/read_count/{sample}_read_count.log"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 4000,
+        runtime= "30m"
+    shell:
+        "touch {output}; "
+        "(./scripts/data_validation/count_reads.sh {input.preT} {input.postT} {input.postF} {output} {wildcards.sample})2>{log}"
+
+rule count_reads_summary:
+    input:
+        sams=expand("../results/data_validation/QC/{sample}_read_count.txt", sample=config["samples"])
+    output:
+        "../results/data_validation/QC/read_count.tsv"
+    log:
+        "logs/data_validation/QC/read_count/summary_read_count.log"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 4000,
+        runtime= "30m"
+    shell:
+        "(awk 'FNR!=NR && FNR==1 {{next}} 1' {input.sams} > {output})2>{log}"
+
+##################################### Assembly Phages ######################################
+rule assemble_metagenomes:
+    input:
+        R1 = "../data/trimmed_reads/{sample}_R1_paired.fastq.gz",
+        R2 = "../data/trimmed_reads/{sample}_R2_paired.fastq.gz"
+    output:
+        outdir=directory("../results/assembly/viral/{sample}_viral_assembly")
+    threads: 12
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 250000,
+        runtime= "3h"
+    log:
+        "logs/assembly/filt/{sample}_assembly_viral.log"
+    benchmark:
+        "logs/assembly/filt/{sample}_assemble_viral.benchmark"
+    conda:
+        "envs/assembly.yaml"
+    shell:
+        "megahit -1 {input.R1} -2 {input.R2} -o {output} -m 0.8 -t {threads} --presets meta-sensitive"    
+
+##################################### Identify Phages ######################################
+rule run_vibrant:
+    input:
+        assembly = "../results/assembly/viral/{sample}_viral_assembly"
+    output:
+        outdir = directory("../results/viral_identification/vibrant/{sample}")
+    log:
+        "logs/viral_identification/vibrant/{sample}_vibrant.log"
+    params:
+        db="/work/FAC/FBM/DMF/pengel/beemicrophage/aiuliano/GLOPHAGE/resources/vibrant-1.2.0/databases/"
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 100000,
+        runtime = "1h"
+    threads: 8
+    conda:
+        "envs/vibrant.yaml"
+    shell:
+        "VIBRANT_run.py -i {input.assembly}/final.contigs.fa -folder {output.outdir} -d {params.db} -t {threads};"
+
+rule parse_vibrant:
+    input:
+        "../results/viral_identification/vibrant/{sample}"
+    output:
+        temp("../results/viral_identification/vibrant/summary/{sample}_vibrant_summary.tsv")
+    log:
+        "logs/viral_identification/vibrant/{sample}_summary.log"
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 1000,
+        runtime = "10m"
+    threads: 1
+    conda:
+        "envs/base_R_env.yaml"
+    shell:
+        "Rscript scripts/viral_identification/parse_vibrant_output.R -d {input} -o {output}"
+
+
+rule aggregate_vibrant_summaries:
+    input:
+        all_tabs=expand("../results/viral_identification/vibrant/summary/{sample}_vibrant_summary.tsv", sample=config["samples"])
+    output:
+        summ_tab="../results/viral_identification/vibrant/summary/vibrant_identification_summary.tsv"
+    log:
+        "logs/viral_identification/vibrant/all_vibrant_summary.log"
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 1000,
+        runtime = "10m"
+    threads: 1
+    run:
+        import pandas as pd
+        df=concat_tables(input.all_tabs, head="infer")
+        df.to_csv(output.summ_tab, sep="\t", index=False)
+
+rule Get_Viral_Contigs:
+    input:
+        assembly="../results/assembly/viral/{sample}_viral_assembly",
+        summ_tab="../results/viral_identification/vibrant/summary/vibrant_identification_summary.tsv"
+    output:
+        viral_contigs="../results/assembly/viral/{sample}_viral_contigs.fasta"
+    log:
+        "logs/viral_identification/{sample}_get_viral_contigs.log"
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 10000,
+        runtime = "10m"
+    threads: 1
+    conda:
+        "envs/base_R_env.yaml"
+    shell:
+        "Rscript scripts/viral_identification/get_viral_contigs.R -i {input.assembly}//final.contigs.fa -t {input.summ_tab} -o {output}"
+
+rule aggragate_viral_contigs:
+    input:
+        expand("../results/assembly/viral/{sample}_viral_contigs.fasta", sample=config["samples"])
+    output:
+        "../results/assembly/viral/all_viral_contigs.fasta"
+    log:
+        "logs/viral_identification/aggregate_get_viral_contigs.log"
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 10000,
+        runtime = "10m"
+    threads: 1
+    shell:
+        "cat {input} > {output}"
+
+checkpoint split_viral_contigs:
+    input:
+        "../results/assembly/viral/all_viral_contigs.fasta"
+    output:
+        dir=temp(directory("../results/assembly/viral/single_genomes/")),
+        list_genomes="../results/assembly/viral/single_genomes_list.txt"
+    resources:
+        account="pengel_beemicrophage",
+        runtime="15m",
+        mem_mb = 8000
+    threads: 1
+    log:
+        "logs/viral_identification/split_contigs.log"
+    shell:
+        """
+        python scripts/split_assembly.py -f {input} -d {output.dir}
+        ls {output.dir}/*.fasta > {output.list_genomes}
+        """
+
+def get_generated_files(wildcards):
+    # Use `get()` to retrieve the directory created by the checkpoint
+    checkpoint_output = checkpoints.split_viral_contigs.get().output[0]
+    # List files in the directory to use them as input for subsequent rules
+    return glob_wildcards(f"{checkpoint_output}/{{file}}.fasta").file
+
+def read_file_list():
+    with open("file_list.txt") as f:
+        return [line.strip() for line in f]
+
+
+############################### Polishing ########################################################################
+
+rule phages_decontam:
+    input:
+        viruses="../results/assembly/viral/all_viral_contigs.fasta"
+    output:
+        directory("../results/vMAGs/vMAGs_contamination")
+    threads: 10
+    log:
+        "logs/vMAGs/viral_decontam.log"
+    conda:
+        "envs/genomad.yaml"
+    params:
+        db="/work/FAC/FBM/DMF/pengel/beemicrophage/aiuliano/GLOPHAGE/resources/genomad_db"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 100000,
+        runtime= "1h"
+    shell:
+        "genomad end-to-end --cleanup {input.viruses} {output} {params.db} -t {threads}"
+
+# this rule runs checkV on the binned viral contigs
+rule run_checkv:
+    input:
+        assembly = "../results/assembly/viral/all_viral_contigs.fasta"
+    output:
+        dir=directory("../results/vMAGs/QC/Checkv")
+    params:
+        db="/work/FAC/FBM/DMF/pengel/default/mndiaye1/checkv-db-v1.5"
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 100000,
+        runtime = "1h"
+    threads:10
+    conda:
+        "envs/checkv.yaml"
+    log:
+        "logs/vMAGs/checkV.log"
+    shell:
+        "checkv end_to_end {input.assembly} {output.dir} -t {threads} -d {params.db}"
+
+rule lifestyle:
+    input:
+        viruses="../results/assembly/viral/all_viral_contigs.fasta"
+    output:
+        directory("../results/vMAGs/lifestyle")
+    threads: 10
+    log:
+        "logs/vMAGs/lifestyle.log"
+    conda:
+        "envs/phabox.yaml"
+    params:
+        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/phabox_db_v2"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 100000,
+        runtime= "1h"
+    shell:
+        "phabox2 --task phatyp --dbdir {params.db} --contigs {input.viruses} --outpth {output} --threads {threads}"
+
+rule taxonomy:
+    input:
+        viruses="../results/assembly/viral/all_viral_contigs.fasta"
+    output:
+        directory("../results/vMAGs/taxonomy")
+    threads: 10
+    log:
+        "logs/vMAGs/taxonomy.log"
+    conda:
+        "envs/phabox.yaml"
+    params:
+        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/phabox_db_v2"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 100000,
+        runtime= "1h"
+    shell:
+        "phabox2 --task phagcn --dbdir {params.db} --contigs {input.viruses} --outpth {output} --threads {threads}"
+
+############################### Annotation ########################################################################
+rule run_pharokka:
+    input:
+        assembly = "../results/assembly/viral/all_viral_contigs.fasta"
+    output:
+        dir=directory("../results/vMAGs/annotations/pharokka/all_viruses")
+    params:
+        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/pharokka_db"
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 100000,
+        runtime = "1h"
+    threads:16
+    conda:
+        "envs/pharokka.yaml"
+    log:
+        "logs/vMAGs/pharokka_allgenomes.log"
+    shell:
+        "pharokka.py -i {input} -o {output} -d {params.db} -t {threads} --meta --split" 
+
+rule split_pharokka_vOTU:
+    input:
+        annot="../results/vMAGs/annotations/pharokka/all_viruses",
+        drep="../results/vMAGs/dereplication/dRep_summary_single.tsv"
+    output:
+        directory("../scratch_link/annotations_vOTU/{vOTU}")
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 5000,
+        runtime = "20m"
+    threads:1
+    log:
+        "logs/vMAGs/split_pharokka_{vOTU}.log"
+    shell:
+        "mkdir -p {output}; "
+        "python scripts/annotations/pharokka_splitter.py -i {input.annot} -d {input.drep} -v {wildcards.vOTU}  -o {output}"
+
+include: "compare_vOTUs.smk"
+
+
+###############################  Phylogeny #############################################################
+
+
+rule viral_phylogeny: # VIRIDIC PROJECT:  P2876___mndiaye1___Malick_phage_test___20241129101259
+    input:
+        viruses="../results/assembly/viral/all_viral_contigs.fasta"
+    output:
+        directory("../results/vMAGs/vMAGs_phylogeny")
+    threads: 20
+    log:
+        "logs/vMAGs/viral_phylogeny.log"
+    conda:
+        "envs/phabox.yaml"
+    params:
+        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/phabox_db_v2"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 50000,
+        runtime= "10h"
+    shell:
+        "phabox2 --task tree --dbdir {params.db} \
+        --len 5000 \
+        --outpth  {output} \
+        --contigs {input} \
+        --threads {threads} --tree Y --msa Y"
+
+###############################  Phage-Host prediction #############################################################
+
+rule assign_host:
+    input:
+        phageDB="../results/assembly/viral/{sample}_viral_contigs.fasta",
+        spacers_db="/work/FAC/FBM/DMF/pengel/beemicrophage/mndiaye1/PHOSTER/results/spacers_db/spacersDB"
+    output:
+        blastout=temp("../results/phage_host_link/spacers_{sample}_blastout.txt")
+    log:
+        "logs/phage_host_link/CRIPR_match_{sample}.log"
+    threads: 10
+    conda:
+        "envs/CrisprOpenDB.yaml"
+    params:
+        DB="resources/default_DBs/CrisprOpenDB"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 100000,
+        runtime= "1h"
+    shell:
+        "blastn -query {input.phageDB} -task blastn-short -db {input.spacers_db}/mySpacersDB -outfmt '6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore' -out {output.blastout} -num_threads {threads}"
+
+rule aggregate_assign_host:
+    input:
+        blastout=expand("../results/phage_host_link/spacers_{sample}_blastout.txt", sample=config["samples"])
+    output:
+        all_blastout="../results/phage_host_link/all_spacers_blastout.txt"
+    log:
+        "logs/phage_host_link/aggregate_assign_host.log"
+    threads: 1
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 100000,
+        runtime= "10m"
+    shell:
+        "echo -e 'Query\tSPACER_ID\tidentity\talignement_length\tmismatch\tgap\tq_start\tq_end\ts_start\ts_end\te_value\tscore' > {output.all_blastout}; "
+        "tail -n +2 -q {input.blastout} >> {output.all_blastout}; "
+
+
+################################# Dereplicate viral genomes #############################################################
+rule dereplicate_viral_contigs_single:
+    input:
+        dir="../results/assembly/viral/single_genomes/"
+    output:
+        drep=directory("../results/vMAGs/dereplication/dRep_single")
+    resources:
+        account="pengel_beemicrophage",
+        runtime="3h",
+        mem_mb = 200000
+    threads: 20
+    log:
+        "logs/vMAGs/dereplication/drep_single.log"
+    benchmark:
+        "logs/vMAGs/dereplication/drep_single.benchmark"
+    conda:
+        "envs/drep_env.yaml"
+    shell:
+        "dRep dereplicate {output} -g {input.dir}/* --S_algorithm ANImf -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg single --ignoreGenomeQuality -p {threads}; "
+
+rule dereplicate_viral_contigs_average:
+    input:
+        dir="../results/assembly/viral/single_genomes/"
+    output:
+        drep=directory("../results/vMAGs/dereplication/dRep_average")
+    resources:
+        account="pengel_beemicrophage",
+        runtime="3h",
+        mem_mb = 200000
+    threads: 20
+    log:
+        "logs/vMAGs/dereplication/drep_average.log"
+    benchmark:
+        "logs/vMAGs/dereplication/drep_average.benchmark"
+    conda:
+        "envs/drep_env.yaml"
+    shell:
+        "dRep dereplicate {output} -g {input.dir}/* --S_algorithm ANImf -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg average --ignoreGenomeQuality -p {threads}; "
+
+checkpoint parse_dRep_viruses_single:
+    input:
+        drep="../results/vMAGs/dereplication/dRep_single",
+        metadata="../results/vMAGs/QC/Checkv"
+    output:
+        tab="../results/vMAGs/dereplication/dRep_summary_single.tsv"
+    resources:
+        account="pengel_beemicrophage",
+        runtime="10m",
+        mem_mb = 8000
+    threads: 1
+    log:
+        "logs/vMAGs/dereplication/parse_drep_single.log"
+    conda:
+        "envs/base_R_env.yaml"
+    shell:
+        "Rscript scripts/vMAGs_handling/parse_drep_viruses.R -i {input.drep} -m {input.metadata}/quality_summary.tsv -o {output.tab}"
+
+
+
+rule parse_dRep_viruses_average:
+    input:
+        drep="../results/vMAGs/dereplication/dRep_average",
+        metadata="../results/vMAGs/QC/Checkv"
+    output:
+        tab="../results/vMAGs/dereplication/dRep_summary_average.tsv"
+    resources:
+        account="pengel_beemicrophage",
+        runtime="10m",
+        mem_mb = 8000
+    threads: 1
+    log:
+        "logs/vMAGs/dereplication/parse_drep_average.log"
+    conda:
+        "envs/base_R_env.yaml"
+    shell:
+        "Rscript scripts/vMAGs_handling/parse_drep_viruses.R -i {input.drep} -m {input.metadata}/quality_summary.tsv -o {output.tab}"
+
+########################################## Community Mapping #############################################################
+rule coverm:
+    input:
+        R1="../data/trimmed_reads/{sample}_R1_paired.fastq.gz", # these are the filtered reads
+        R2="../data/trimmed_reads/{sample}_R2_paired.fastq.gz",
+        genomes="../results/vMAGs/dereplication/dRep_average"
+    output:
+       tab=temp("../results/mapping/{sample}_community_mapping.txt")
+    resources:
+        account="pengel_beemicrophage",
+        runtime="30m",
+        mem_mb = 50000
+    threads: 20
+    log:
+        "logs/mapping/{sample}_map.log"
+    conda:
+        "envs/coverm.yaml"
+    shell:
+        """
+        coverm genome -1 {input.R1} -2 {input.R2} -d {input.genomes}/dereplicated_genomes -x .fasta \
+            --mapper minimap2-sr --min-read-percent-identity 92 -m length count rpkm trimmed_mean covered_bases \
+            variance --min-covered-fraction 0 -t {threads} -o {output.tab}
+        """
+        
+rule aggregate_coverm:
+    input:
+        expand("../results/mapping/{sample}_community_mapping.txt", sample=config["samples"])
+    output:
+        all="../results/mapping/all_viral_community_mapping.txt"
+    resources:
+        account="pengel_beemicrophage",
+        runtime="10m",
+        mem_mb = 8000
+    threads: 1
+    log:
+        "logs/mapping/concat_mapping_data.log"
+    run:
+        import pandas as pd
+        
+        samples=list(config["samples"].keys())
+        dict_samples={"sample":samples}
+
+        df=concat_tables(input, skip=0, delimiter="\t", 
+            head=0, names=True, names_list=["genome", "length", "count", "rpkm","trimmed_mean", "covered_bases", "variance" ],
+            add=dict_samples)
+        df.to_csv(output.all, sep="\t", index=False)
+
+# checkpoint generate_files:
+#     output: directory("output_dir")
+#     shell:
+#         """
+#         # Command that generates multiple files in 'output_dir'
+#         touch output_dir/fileA.txt output_dir/fileB.txt output_dir/fileC.txt
+#         """
+
+# # Function to dynamically retrieve files within the output directory
+# def get_generated_files(wildcards):
+#     # Use `get()` to retrieve the directory created by the checkpoint
+#     checkpoint_output = checkpoints.generate_files.get().output[0]
+#     # List files in the directory to use them as input for subsequent rules
+#     return glob_wildcards(f"{checkpoint_output}/{{file}}.txt").file
+
+# rule process_files:
+#     input: lambda wildcards: f"output_dir/{wildcards.file}.txt"
+#     output: "processed/{file}.done"
+#     shell:
+#         """
+#         # Process each file individually
+#         touch {output}
+#         """
+
+# rule process_files:
+#     input: read_file_list
+#     output: expand("processed/{file}.done", file=lambda wildcards: wildcards.file.split('/')[-1].replace(".txt", ""))
+#     shell:
+#         """
+#         # Process each file listed in file_list.txt
+#         touch {output}
+#         """
+
+
+
+        

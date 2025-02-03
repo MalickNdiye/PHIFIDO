@@ -1,0 +1,5 @@
+name: progressiveMauve
+channels:
+  - bioconda
+dependencies:
+  - progressivemauve
