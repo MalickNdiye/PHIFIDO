@@ -1,0 +1,29 @@
+{
+  "search_databases": {
+    "kegg": null,
+    "kofam_hmm": "/reference/dram_20230610/kofam_profiles.hmm",
+    "kofam_ko_list": "/reference/dram_20230610/kofam_ko_list.tsv",
+    "uniref": "/reference/dram_20230610/uniref90.20230610.mmsdb",
+    "pfam": "/reference/dram_20230610/pfam.mmspro",
+    "dbcan": "/reference/dram_20230610/dbCAN-HMMdb-V11.txt",
+    "viral": "/reference/dram_20230610/refseq_viral.20230610.mmsdb",
+    "peptidase": "/reference/dram_20230610/peptidases.20230610.mmsdb",
+    "vogdb": "/reference/dram_20230610/vog_latest_hmms.txt"
+  },
+  "custom_dbs": null,
+  "database_descriptions": {
+    "pfam_hmm": "/reference/dram_20230610/Pfam-A.hmm.dat.gz",
+    "dbcan_fam_activities": "/reference/dram_20230610/CAZyDB.08062022.fam-activities.txt",
+    "dbcan_subfam_ec": "/reference/dram_20230610/CAZyDB.08062022.fam.subfam.ec.txt",
+    "vog_annotations": "/reference/dram_20230610/vog_annotations_latest.tsv.gz"
+  },
+  "dram_sheets": {
+    "genome_summary_form": "/reference/dram_20230610/genome_summary_form.20230610.tsv",
+    "module_step_form": "/reference/dram_20230610/module_step_form.20230610.tsv",
+    "etc_module_database": "/reference/dram_20230610/etc_mdoule_database.20230610.tsv",
+    "function_heatmap_form": "/reference/dram_20230610/function_heatmap_form.20230610.tsv",
+    "amg_database": "/reference/dram_20230610/amg_database.20230610.tsv"
+  },
+  "description_db": "/reference/dram_20230610/description_db.sqlite",
+  "dram_version": "1.4.0"
+}

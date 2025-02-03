@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import numpy as np
 
+include: "Host_analysis.smk"
 ############### Functions ###################################################
 def concat_tables(tables_list, skip=0, delimiter="\t", head=0, names=False, names_list=[], add={}):
     # this function concatenates a list of tables
@@ -42,8 +43,8 @@ rule all:
         "../results/vMAGs/vMAGs_contamination"
 
 
-
-################### Data Validation ##########################################
+####################################################################################
+#1. Data Validation 
 
 # This rule takes the concatenated raw reads files and runs them against the krakend db
 rule run_Krakern2:
@@ -129,7 +130,8 @@ def get_files_commas(path, sep=",", remove_hidden=True):
 rule filter_bifido_paired:
     input:
         R1="../data/trimmed_reads/{sample}_R1_paired.fastq.gz",
-        R2="../data/trimmed_reads/{sample}_R2_paired.fastq.gz"
+        R2="../data/trimmed_reads/{sample}_R2_paired.fastq.gz",
+        ref_bifido=expand("../data/references/Bifido_genomes/{genome}.fasta", genome=config["BiCom"])
     output: # I don't need the sam of the mapping so I delete them immediatly
         unmapped_R1="../data/filtered_reads/{sample}_R1_filt.fastq.gz", # these are the filtered reads
         unmapped_R2="../data/filtered_reads/{sample}_R2_filt.fastq.gz",
@@ -139,7 +141,7 @@ rule filter_bifido_paired:
         "envs/mapping.yaml"
     threads: 10
     params:
-        ref_bifido=get_files_commas("../data/references/Bifido_genomes"),
+        ref_bifi=lambda w, input: ",".join(input.ref_bifido),
         dir="../results/data_validation/filtered_reads/discarded/{sample}_discarded/",
         xmx="50g"
     log:
@@ -149,7 +151,7 @@ rule filter_bifido_paired:
         mem_mb = 100000,
         runtime= "30m"
     shell:
-        "bbsplit.sh in1={input.R1} in2={input.R2} ref={params.ref_bifido} \
+        "bbsplit.sh in1={input.R1} in2={input.R2} ref={params.ref_bifi} \
         basename={params.dir}/{wildcards.sample}_HF_discarded_%.sam \
         refstats={output.refstats} rebuild=f nodisk=t \
         outu1={output.unmapped_R1} outu2={output.unmapped_R2} nzo=f -Xmx{params.xmx} threads={threads} \
@@ -660,40 +662,3 @@ rule aggregate_coverm:
             head=0, names=True, names_list=["genome", "length", "count", "rpkm","trimmed_mean", "covered_bases", "variance" ],
             add=dict_samples)
         df.to_csv(output.all, sep="\t", index=False)
-
-# checkpoint generate_files:
-#     output: directory("output_dir")
-#     shell:
-#         """
-#         # Command that generates multiple files in 'output_dir'
-#         touch output_dir/fileA.txt output_dir/fileB.txt output_dir/fileC.txt
-#         """
-
-# # Function to dynamically retrieve files within the output directory
-# def get_generated_files(wildcards):
-#     # Use `get()` to retrieve the directory created by the checkpoint
-#     checkpoint_output = checkpoints.generate_files.get().output[0]
-#     # List files in the directory to use them as input for subsequent rules
-#     return glob_wildcards(f"{checkpoint_output}/{{file}}.txt").file
-
-# rule process_files:
-#     input: lambda wildcards: f"output_dir/{wildcards.file}.txt"
-#     output: "processed/{file}.done"
-#     shell:
-#         """
-#         # Process each file individually
-#         touch {output}
-#         """
-
-# rule process_files:
-#     input: read_file_list
-#     output: expand("processed/{file}.done", file=lambda wildcards: wildcards.file.split('/')[-1].replace(".txt", ""))
-#     shell:
-#         """
-#         # Process each file listed in file_list.txt
-#         touch {output}
-#         """
-
-
-
-        

@@ -188,3 +188,104 @@ samples:
   mixPE-none-4 :
     - ../data/raw_reads/G8_R1.fastq.gz
     - ../data/raw_reads/G8_R2.fastq.gz
+
+BiCom:
+  ESL0170:
+    - ../data/references/Bifido_genomes/ESL0170.fasta
+  ESL1077:
+    - ../data/references/Bifido_genomes/ESL1077.fasta
+  ESL1060:
+    - ../data/references/Bifido_genomes/ESL1060.fasta
+  ESL1069:
+    - ../data/references/Bifido_genomes/ESL1069.fasta
+  ESL0819:
+    - ../data/references/Bifido_genomes/ESL0819.fasta
+  ESL0820:
+    - ../data/references/Bifido_genomes/ESL0820.fasta
+  ESL0822:
+    - ../data/references/Bifido_genomes/ESL0822.fasta
+  ESL0824:
+    - ../data/references/Bifido_genomes/ESL0824.fasta
+  ESL0827:
+    - ../data/references/Bifido_genomes/ESL0827.fasta
+  ESL0198:
+    - ../data/references/Bifido_genomes/ESL0198.fasta
+  ESL0199:
+    - ../data/references/Bifido_genomes/ESL0199.fasta
+  ESL0200:
+    - ../data/references/Bifido_genomes/ESL0200.fasta
+
+all_bifidos:
+  - BAST
+  - BCOR
+  - BINDI
+  - ESL0170
+  - ESL0198
+  - ESL0199
+  - ESL0200
+  - ESL0819
+  - ESL0820
+  - ESL0822
+  - ESL0824
+  - ESL0825
+  - ESL0827
+  - ESL1057
+  - ESL1058
+  - ESL1059
+  - ESL1060
+  - ESL1062
+  - ESL1063
+  - ESL1065
+  - ESL1066
+  - ESL1069
+  - ESL1070
+  - ESL1071
+  - ESL1072
+  - ESL1073
+  - ESL1076
+  - ESL1077
+  - ESL1078
+  - ESL1080
+  - ESL1081
+  - ESL1083
+  - ESL1086
+  - ESL1087
+  - ESL1088
+  - ESL1090
+  - Ga0056940
+  - Ga0057557
+  - Ga0070887
+  - Ga0070888
+  - Ga0072395
+  - Ga0072396
+  - Ga0072398
+  - Ga0072399
+  - Ga0072401
+  - Ga0098206
+  - Ga0133549
+  - Ga0133550
+  - Ga0133551
+  - Ga0133553
+  - Ga0133561
+  - Ga0133563
+  - Ga0226840
+  - Ga0312305
+  - H3S92
+  - H3S93
+  - H3S97
+  - H3T81
+  - H3T86
+  - H3T89
+  - H3T90
+  - H3T91
+  - H3T92
+  - H3T93
+  - H3U87
+  - H3U88
+  - H3U89
+  - H3U98
+  - H3V04
+  - H3V06
+  - H3V08
+  
+DRAM_CONFIG: ../config/dram_config.json
