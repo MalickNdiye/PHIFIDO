@@ -45,6 +45,8 @@ rule all:
 
 ####################################################################################
 #1. Data Validation 
+####################################################################################
+
 
 # This rule takes the concatenated raw reads files and runs them against the krakend db
 rule run_Krakern2:
@@ -383,7 +385,7 @@ rule run_checkv:
     output:
         dir=directory("../results/vMAGs/QC/Checkv")
     params:
-        db="/work/FAC/FBM/DMF/pengel/default/mndiaye1/checkv-db-v1.5"
+        db=config["CHECKV_DB"]
     resources:
         account="pengel_beemicrophage",
         mem_mb= 100000,
@@ -407,7 +409,7 @@ rule lifestyle:
     conda:
         "envs/phabox.yaml"
     params:
-        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/phabox_db_v2"
+        db=config["PHABOX_DB"]
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 100000,
@@ -426,7 +428,7 @@ rule taxonomy:
     conda:
         "envs/phabox.yaml"
     params:
-        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/phabox_db_v2"
+        db=config["PHABOX_DB"]
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 100000,
@@ -477,7 +479,7 @@ include: "compare_vOTUs.smk"
 ###############################  Phylogeny #############################################################
 
 
-rule viral_phylogeny: # VIRIDIC PROJECT:  P2876___mndiaye1___Malick_phage_test___20241129101259
+rule viral_phylogeny: 
     input:
         viruses="../results/assembly/viral/all_viral_contigs.fasta"
     output:
@@ -488,7 +490,7 @@ rule viral_phylogeny: # VIRIDIC PROJECT:  P2876___mndiaye1___Malick_phage_test__
     conda:
         "envs/phabox.yaml"
     params:
-        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/phabox_db_v2"
+        db=config["PHABOX_DB"]
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 50000,
@@ -595,8 +597,6 @@ checkpoint parse_dRep_viruses_single:
         "envs/base_R_env.yaml"
     shell:
         "Rscript scripts/vMAGs_handling/parse_drep_viruses.R -i {input.drep} -m {input.metadata}/quality_summary.tsv -o {output.tab}"
-
-
 
 rule parse_dRep_viruses_average:
     input:

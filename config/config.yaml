@@ -289,3 +289,6 @@ all_bifidos:
   - H3V08
   
 DRAM_CONFIG: ../config/dram_config.json
+DF_MODELS: ../resources/databases/DefenseFinder_models
+CHECKV_DB: /work/FAC/FBM/DMF/pengel/default/mndiaye1/checkv-db-v1.5
+PHABOX_DB: /work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/phabox_db_v2
