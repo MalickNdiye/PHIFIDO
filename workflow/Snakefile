@@ -456,6 +456,26 @@ rule run_pharokka:
     shell:
         "pharokka.py -i {input} -o {output} -d {params.db} -t {threads} --meta --split" 
 
+rule defense_finder_viruses: 
+    input:
+        annots="../results/vMAGs/annotations/pharokka/all_viruses"
+    output:
+        dir=directory("../results/pangenomics/viruses/defense_finder"),
+        tmp=temp("../results/pangenomics/viruses/all_viruses.faa")
+    threads: 8
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 10000,
+        runtime= "1h"
+    log: "logs/defense_finder/viruses_defense_finder.log"
+    conda:
+        "envs/defense_finder.yaml"
+    params:
+        models=config["DF_MODELS"]
+    shell:
+        "cat  {input.annots}/single_faas/*.faa > {output.tmp}; "
+        "defense-finder run -o {output.dir} -w {threads} --models-dir {params.models} {output.tmp}"
+
 rule split_pharokka_vOTU:
     input:
         annot="../results/vMAGs/annotations/pharokka/all_viruses",

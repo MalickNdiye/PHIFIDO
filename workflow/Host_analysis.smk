@@ -74,7 +74,7 @@ rule make_phylogeny:
         "mkdir -p {output}; "
         "iqtree -s {input}/Results_orthofinder_results/MultipleSequenceAlignments/SpeciesTreeAlignment.fa -nt {threads} -m MFP -bb 1000 -pre {output}/species_tree -o {params.outgroup}"
 
-rule run_defense_finder:
+rule defense_finder_bacteria:
     input:
         bifido="../results/pangenomics/bacteria/annotations/drammotate/cds/proteins/{bifido}_genes.faa"
     output:
@@ -92,20 +92,19 @@ rule run_defense_finder:
     shell:
         "defense-finder run -o {output} -w {threads} --models-dir {params.models} {input.bifido}"
 
-rule aggregate_DF_results:
+rule aggregate_DF_bacteria:
     input:
         expand("../results/pangenomics/bacteria/defense_finder/{bifido}", bifido=config["BiCom"])
     output:
-        "../results/pangenomics/bacteria/defense_finder/defense_finder_systems.tsv"
+        "../results/pangenomics/bacteria/defense_finder/defense_finder_systems.csv"
     log: "logs/defense_finder/aggregate_DF_results.log"
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 5000,
         runtime= "1h"
     run:
-        # join {bifido}_genes_defense_finder.tsv files to the path of each input
-        strains=config["BiCom"]
-        renamed_inputs = [f"{input}/{strains[i]}_genes_defense_finder_systems.tsv" for i in range(len(strains))] # TODO fix this
-        print(renamed_inputs)
-        df=concat_tables(renamed_inputs, skip=0, delimiter="\t", head=0, names=False, add={"genome": lambda wildcards: wildcards.bifido})
+        from pathlib import Path
+        strains=list(config["BiCom"].keys())
+        file_list = [str(file) for directory in input for file in Path(directory).glob("*_genes_defense_finder_systems.tsv")]
+        df=concat_tables(file_list, skip=0, delimiter="\t", head=0, names=False, add={"genome": strains})
         df.to_csv(output[0], sep="\t", index=False)
