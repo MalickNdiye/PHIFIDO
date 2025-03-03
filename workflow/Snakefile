@@ -314,7 +314,8 @@ rule Get_Viral_Contigs:
 
 rule aggragate_viral_contigs:
     input:
-        expand("../results/assembly/viral/{sample}_viral_contigs.fasta", sample=config["samples"])
+        vmags=expand("../results/assembly/viral/{sample}_viral_contigs.fasta", sample=config["samples"]),
+        isolates="../data/references/Honeybee_phage_isolates/Isolated_phages_genomes.fasta"
     output:
         "../results/assembly/viral/all_viral_contigs.fasta"
     log:
@@ -325,13 +326,14 @@ rule aggragate_viral_contigs:
         runtime = "10m"
     threads: 1
     shell:
-        "cat {input} > {output}"
+        "cat {input.vmags} > {output}; "
+        "cat {input.isolates} >> {output}"
 
 checkpoint split_viral_contigs:
     input:
         "../results/assembly/viral/all_viral_contigs.fasta"
     output:
-        dir=temp(directory("../results/assembly/viral/single_genomes/")),
+        dir=directory("../results/assembly/viral/single_genomes/"),
         list_genomes="../results/assembly/viral/single_genomes_list.txt"
     resources:
         account="pengel_beemicrophage",
