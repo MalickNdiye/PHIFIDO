@@ -39,8 +39,7 @@ def concat_tables(tables_list, skip=0, delimiter="\t", head=0, names=False, name
 ###############################  Rules #######################################
 rule all:
     input:
-        "../results/vMAGs/QC/Checkv",
-        "../results/vMAGs/vMAGs_contamination"
+        "/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/pharokka_db"
 
 
 ####################################################################################
@@ -248,7 +247,7 @@ rule run_vibrant:
     log:
         "logs/viral_identification/vibrant/{sample}_vibrant.log"
     params:
-        db="/work/FAC/FBM/DMF/pengel/beemicrophage/aiuliano/GLOPHAGE/resources/vibrant-1.2.0/databases/"
+        db="../resources/databases/databases"
     resources:
         account="pengel_beemicrophage",
         mem_mb= 100000,
@@ -409,7 +408,7 @@ rule lifestyle:
     log:
         "logs/vMAGs/lifestyle.log"
     conda:
-        "envs/phabox.yaml"
+        "envs/bacphlip.yaml"
     params:
         db=config["PHABOX_DB"]
     resources:
@@ -417,7 +416,8 @@ rule lifestyle:
         mem_mb = 100000,
         runtime= "1h"
     shell:
-        "phabox2 --task phatyp --dbdir {params.db} --contigs {input.viruses} --outpth {output} --threads {threads}"
+        "bacphlip -i {input.viruses} --multi_fasta -f; "
+        "mv {input.viruses}.BACPHLIP_DIR {input.viruses}.bacphlip {input.viruses}.hmmsearch {output}"
 
 rule taxonomy:
     input:
