@@ -1,0 +1,6 @@
+name: instrain_env
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - instrain=1.10.0

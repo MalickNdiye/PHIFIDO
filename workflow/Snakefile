@@ -417,12 +417,6 @@ rule taxonomy:
     shell:
         "phabox2 --task phagcn --dbdir {params.db} --contigs {input.viruses} --outpth {output} --threads {threads}"
 
-############################### Phage Pangenome ########################################################################
-
-include: "pangenome_phages.smk"
-
-include: "compare_vOTUs.smk"
-
 ###############################  Phage-Host prediction #############################################################
 
 rule assign_host:
@@ -519,7 +513,7 @@ checkpoint parse_dRep_viruses_single:
     shell:
         "Rscript scripts/vMAGs_handling/parse_drep_viruses.R -i {input.drep} -m {input.metadata}/quality_summary.tsv -o {output.tab}"
 
-rule parse_dRep_viruses_average:
+checkpoint parse_dRep_viruses_average:
     input:
         drep="../results/vMAGs/dereplication/dRep_average",
         metadata="../results/vMAGs/QC/Checkv"
@@ -536,6 +530,27 @@ rule parse_dRep_viruses_average:
         "envs/base_R_env.yaml"
     shell:
         "Rscript scripts/vMAGs_handling/parse_drep_viruses.R -i {input.drep} -m {input.metadata}/quality_summary.tsv -o {output.tab}"
+
+
+def get_representative_genomes_average(wildcards):
+    import pandas as pd
+    summary_file = checkpoints.parse_dRep_viruses_average.get().output[0]
+    
+    if not os.path.exists(summary_file):
+        return []  # return empty list while Snakemake is resolving dependencies
+    
+    df = pd.read_csv(summary_file, sep="\t")
+    rep_genomes = df.loc[df["representative"].astype(str).str.upper() == "TRUE", "genome"].tolist()
+
+    return rep_genomes
+
+############################### Phage Pangenome ########################################################################
+
+include: "pangenome_phages.smk"
+
+include: "compare_vOTUs.smk"
+
+include: "instrain.smk"
 
 ########################################## Community Mapping #############################################################
 rule coverm:

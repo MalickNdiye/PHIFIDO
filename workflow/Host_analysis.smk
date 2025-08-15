@@ -149,7 +149,7 @@ rule make_phylogeny:
         outgroup="Ga0098206_genes"
     shell:
         "mkdir -p {output}; "
-        "iqtree -s {input} -nt {threads} -m LG+F+I+G4 -bb 1000 -pre {output}/Bifido_species_tree -o {params.outgroup}"
+        "iqtree -s {input} -nt {threads} --model-joint NONREV -bb 1000 -pre {output}/Bifido_species_tree"
 
 rule defense_finder_bacteria:
     input:
