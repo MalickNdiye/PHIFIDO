@@ -1,8 +1,9 @@
 name: DefenseFinder
 channels:
   - bioconda
-dependencies:
-  - python>=3.5
   - anaconda
+dependencies:
+  - python=3.13
+  - hmmer=3.1
   - pip:
-    - mdmparis-defense-finder
+    - mdmparis-defense-finder==2.0.0

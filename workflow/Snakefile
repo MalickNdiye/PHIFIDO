@@ -359,26 +359,6 @@ def read_file_list():
 
 
 ############################### Polishing ########################################################################
-
-rule phages_decontam:
-    input:
-        viruses="../results/assembly/viral/all_viral_contigs.fasta"
-    output:
-        directory("../results/vMAGs/vMAGs_contamination")
-    threads: 10
-    log:
-        "logs/vMAGs/viral_decontam.log"
-    conda:
-        "envs/genomad.yaml"
-    params:
-        db="/work/FAC/FBM/DMF/pengel/beemicrophage/aiuliano/GLOPHAGE/resources/genomad_db"
-    resources:
-        account = "pengel_beemicrophage",
-        mem_mb = 100000,
-        runtime= "1h"
-    shell:
-        "genomad end-to-end --cleanup {input.viruses} {output} {params.db} -t {threads}"
-
 # this rule runs checkV on the binned viral contigs
 rule run_checkv:
     input:
@@ -409,15 +389,14 @@ rule lifestyle:
         "logs/vMAGs/lifestyle.log"
     conda:
         "envs/bacphlip.yaml"
-    params:
-        db=config["PHABOX_DB"]
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 100000,
         runtime= "1h"
     shell:
         "bacphlip -i {input.viruses} --multi_fasta -f; "
-        "mv {input.viruses}.BACPHLIP_DIR {input.viruses}.bacphlip {input.viruses}.hmmsearch {output}"
+        "mkdir -p {output}; "
+        "mv {input.viruses}.BACPHLIP_DIR {input.viruses}.bacphlip* {input.viruses}.hmmsearch* {output}"
 
 rule taxonomy:
     input:
@@ -438,98 +417,18 @@ rule taxonomy:
     shell:
         "phabox2 --task phagcn --dbdir {params.db} --contigs {input.viruses} --outpth {output} --threads {threads}"
 
-############################### Annotation ########################################################################
-rule run_pharokka:
-    input:
-        assembly = "../results/assembly/viral/all_viral_contigs.fasta"
-    output:
-        dir=directory("../results/vMAGs/annotations/pharokka/all_viruses")
-    params:
-        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/pharokka_db"
-    resources:
-        account="pengel_beemicrophage",
-        mem_mb= 100000,
-        runtime = "1h"
-    threads:16
-    conda:
-        "envs/pharokka.yaml"
-    log:
-        "logs/vMAGs/pharokka_allgenomes.log"
-    shell:
-        "pharokka.py -i {input} -o {output} -d {params.db} -t {threads} --meta --split" 
+############################### Phage Pangenome ########################################################################
 
-rule defense_finder_viruses: 
-    input:
-        annots="../results/vMAGs/annotations/pharokka/all_viruses"
-    output:
-        dir=directory("../results/pangenomics/viruses/defense_finder"),
-        tmp=temp("../results/pangenomics/viruses/all_viruses.faa")
-    threads: 8
-    resources:
-        account = "pengel_beemicrophage",
-        mem_mb = 10000,
-        runtime= "1h"
-    log: "logs/defense_finder/viruses_defense_finder.log"
-    conda:
-        "envs/defense_finder.yaml"
-    params:
-        models=config["DF_MODELS"]
-    shell:
-        "cat  {input.annots}/single_faas/*.faa > {output.tmp}; "
-        "defense-finder run -o {output.dir} -w {threads} --models-dir {params.models} {output.tmp}"
-
-rule split_pharokka_vOTU:
-    input:
-        annot="../results/vMAGs/annotations/pharokka/all_viruses",
-        drep="../results/vMAGs/dereplication/dRep_summary_single.tsv"
-    output:
-        directory("../scratch_link/annotations_vOTU/{vOTU}")
-    resources:
-        account="pengel_beemicrophage",
-        mem_mb= 5000,
-        runtime = "20m"
-    threads:1
-    log:
-        "logs/vMAGs/split_pharokka_{vOTU}.log"
-    shell:
-        "mkdir -p {output}; "
-        "python scripts/annotations/pharokka_splitter.py -i {input.annot} -d {input.drep} -v {wildcards.vOTU}  -o {output}"
+include: "pangenome_phages.smk"
 
 include: "compare_vOTUs.smk"
-
-
-###############################  Phylogeny #############################################################
-
-
-rule viral_phylogeny: 
-    input:
-        viruses="../results/assembly/viral/all_viral_contigs.fasta"
-    output:
-        directory("../results/vMAGs/vMAGs_phylogeny")
-    threads: 20
-    log:
-        "logs/vMAGs/viral_phylogeny.log"
-    conda:
-        "envs/phabox.yaml"
-    params:
-        db=config["PHABOX_DB"]
-    resources:
-        account = "pengel_beemicrophage",
-        mem_mb = 50000,
-        runtime= "10h"
-    shell:
-        "phabox2 --task tree --dbdir {params.db} \
-        --len 5000 \
-        --outpth  {output} \
-        --contigs {input} \
-        --threads {threads} --tree Y --msa Y"
 
 ###############################  Phage-Host prediction #############################################################
 
 rule assign_host:
     input:
         phageDB="../results/assembly/viral/{sample}_viral_contigs.fasta",
-        spacers_db="/work/FAC/FBM/DMF/pengel/beemicrophage/mndiaye1/PHOSTER/results/spacers_db/spacersDB"
+        spacers_db=config["SPACERS_DB"]
     output:
         blastout=temp("../results/phage_host_link/spacers_{sample}_blastout.txt")
     log:

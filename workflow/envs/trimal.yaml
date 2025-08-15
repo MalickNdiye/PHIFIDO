@@ -1,0 +1,11 @@
+name: trimal
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - trimal=1.5.0
+  - mafft
+  - muscle
+  - clustalw
+  - seqkit

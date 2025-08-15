@@ -1,3 +1,63 @@
+rule checkm_QC:
+    input:
+        assembly="../data/references/Bifido_genomes/"
+    output:
+        dir=directory("../results/pangenomics/bacteria/checkm/"),
+        file="../results/pangenomics/bacteria/checkm/checkm_QC_stats.csv"
+    log:
+        "logs/Bacteria_genomes/checkm.log"
+    threads: 8
+    params:
+        db=config["CHECKM_DB"]
+    conda:
+        "envs/checkm_env.yaml"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 100000,
+        runtime= "1h"
+    shell:
+        "export CHECKM_DATA_PATH={params.db}; "
+        "checkm lineage_wf {input.assembly} {output.dir} -x fasta -t {threads}; "
+        "checkm qa {output.dir}/lineage.ms {output.dir} -o 2 -f {output.file} --tab_table"
+
+rule classify_gtdbtk:
+    input:
+        filtered_mags="../data/references/Bifido_genomes/"
+    output:
+        class_out=directory("../results/pangenomics/bacteria/gtdbtk_classification/")
+    log:
+        "logs/pangenomics/bacteria/gtdbtk_classification.log"
+    threads: 8
+    conda:
+        "envs/gtdb-tk.yaml"
+    params:
+        db=config["GTDB"]
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 150000,
+        runtime= "3h"
+    shell:
+        "export GTDBTK_DATA_PATH={params.db}; "
+        "gtdbtk classify_wf --genome_dir {input.filtered_mags} --extension fasta --skip_ani_screen --out_dir {output.class_out} --cpus {threads}"
+
+
+rule Parse_bacterial_genomic_info:
+    input:
+        genomic_info="../data/metadata/PHOSTER_bacteria_genomes_info.csv",
+        checkm="../results/pangenomics/bacteria/checkm/checkm_QC_stats.csv",
+        gtdb="../results/pangenomics/bacteria/gtdbtk_classification/"
+    output:
+        "../results/pangenomics/bacteria/bacterial_genomic_info.csv"
+    log: 
+        "logs/pangenomics/bacteria/Parse_bacterial_genomic_info.log"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 5000,
+        runtime= "1h"
+    conda: "envs/base_R_env.yaml"
+    shell:
+        "Rscript scripts/pangenomics/Parse_bacterial_genomic_info.R -g {input.genomic_info} -c {input.checkm} -d {input.gtdb}/gtdbtk.bac120.summary.tsv -o {output}"
+
 rule dram_annotate_genomes:
     input:
         dram_config =config["DRAM_CONFIG"],
@@ -36,7 +96,7 @@ rule move_genes_sam:
 
 rule run_orthofinder:
     input:
-        faas=expand("../results/pangenomics/bacteria/annotations/drammotate/cds/nucleotides/{bifido}_genes.fasta", bifido=config["all_bifidos"]),
+        faas=expand("../results/pangenomics/bacteria/annotations/drammotate/cds/proteins/{bifido}_genes.faa", bifido=config["all_bifidos"]),
     output:
         ortho_out=directory("../results/pangenomics/bacteria/Orthofinder/Bifidos")
     conda:
@@ -53,11 +113,28 @@ rule run_orthofinder:
         runtime= "5h"
     shell:
         "faas=$(echo {input.faas} | tr ' ' '\n' | xargs -n 1 dirname | sort | uniq); "
-        "orthofinder -f ${{faas}} -d -o {output.ortho_out} -n {params.name} -t {threads} -M msa"
+        "orthofinder -f ${{faas}} -o {output.ortho_out} -n {params.name} -t {threads} -M msa"
+
+# Trim MSA for position with more than 50% gaps
+rule trim_msa:
+    input:
+        "../results/pangenomics/bacteria/Orthofinder/Bifidos"
+    output:
+        trimmed_msa="../results/pangenomics/bacteria/Orthofinder/Bifido_OG_msa_clean.fa"
+    threads: 4
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 10000,
+        runtime= "1h"
+    log: "logs/pangenomes/trim_msa.log"
+    conda:
+        "envs/trimal.yaml"
+    shell:
+        "trimal -in {input}/Results_orthofinder_results/MultipleSequenceAlignments/SpeciesTreeAlignment.fa -out {output.trimmed_msa} -clustal -gt 0.5"
 
 rule make_phylogeny:
     input:
-        "../results/pangenomics/bacteria/Orthofinder/Bifidos"
+        "../results/pangenomics/bacteria/Orthofinder/Bifido_OG_msa_clean.fa"
     output:
         directory("../results/pangenomics/bacteria/phylogeny/species_tree/")
     threads: 15
@@ -72,7 +149,7 @@ rule make_phylogeny:
         outgroup="Ga0098206_genes"
     shell:
         "mkdir -p {output}; "
-        "iqtree -s {input}/Results_orthofinder_results/MultipleSequenceAlignments/SpeciesTreeAlignment.fa -nt {threads} -m MFP -bb 1000 -pre {output}/species_tree -o {params.outgroup}"
+        "iqtree -s {input} -nt {threads} -m LG+F+I+G4 -bb 1000 -pre {output}/Bifido_species_tree -o {params.outgroup}"
 
 rule defense_finder_bacteria:
     input:

@@ -1,0 +1,6 @@
+name: iqtree_env
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - iqtree=3.0.1

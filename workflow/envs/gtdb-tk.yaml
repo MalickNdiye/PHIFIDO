@@ -1,0 +1,13 @@
+name: gtdbtk
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.10
+  - gtdbtk=2.4.1
+  - fastani
+  - fasttree
+  - prodigal
+  - hmmer
+  - pplacer

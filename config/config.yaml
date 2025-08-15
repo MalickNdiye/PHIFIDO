@@ -705,30 +705,17 @@ all_bifidos:
   - ESL1076
   - ESL1077
   - ESL1078
-  - ESL1080
   - ESL1081
   - ESL1083
   - ESL1086
   - ESL1087
   - ESL1088
-  - ESL1090
-  - Ga0056940
-  - Ga0057557
-  - Ga0070887
-  - Ga0070888
   - Ga0072395
   - Ga0072396
   - Ga0072398
-  - Ga0072399
   - Ga0072401
   - Ga0098206
-  - Ga0133549
   - Ga0133550
-  - Ga0133551
-  - Ga0133553
-  - Ga0133561
-  - Ga0133563
-  - Ga0226840
   - Ga0312305
   - H3S92
   - H3S93
@@ -745,10 +732,17 @@ all_bifidos:
   - H3U89
   - H3U98
   - H3V04
-  - H3V06
   - H3V08
-  
-DRAM_CONFIG: ../config/dram_config.json
-DF_MODELS: ../resources/databases/DefenseFinder_models
+  - H3V06
+
+# Databases
+DF_MODELS: ../resources/databases/DefenseFinder_models2.0/models
 CHECKV_DB: /work/FAC/FBM/DMF/pengel/default/mndiaye1/checkv-db-v1.5
 PHABOX_DB: /work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/phabox_db_v2
+CHECKM_DB: /work/FAC/FBM/DMF/pengel/default/mndiaye1/checkm_db
+GTDB: /work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/release226
+SPACERS_DB: /work/FAC/FBM/DMF/pengel/beemicrophage/mndiaye1/PHOSTER/results/spacers_db/spacersDB
+
+# Environments & Configs
+DRAM_CONFIG: ../config/dram_config.json
+CONDA_ENV_VCONTACT2: /work/FAC/FBM/DMF/pengel/beemicrophage/mndiaye1/PHOSTER/workflow/resources/conda_envs/vcontact2

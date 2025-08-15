@@ -1,0 +1,6 @@
+name: checkm_env
+channels:
+  - bioconda
+  - conda-forge
+dependencies:
+  - checkm-genome=1.2.2
