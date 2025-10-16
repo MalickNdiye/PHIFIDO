@@ -1,5 +1,5 @@
 # Annotate phage genomes
-rule run_pharokka:
+checkpoint run_pharokka:
     input:
         assembly = "../results/assembly/viral/all_viral_contigs.fasta"
     output:
@@ -17,6 +17,7 @@ rule run_pharokka:
         "logs/vMAGs/pharokka_allgenomes.log"
     shell:
         "pharokka.py -i {input} -o {output} -d {params.db} -t {threads} --meta --split" 
+
 
 rule defense_finder_viruses: 
     input:

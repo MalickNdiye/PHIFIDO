@@ -26,7 +26,7 @@ rule get_stb_viral:
     conda:
         "envs/drep_env.yaml"
     params:
-        refs=lambda wildcards, input: get_files_commas(input[0], sep=" ")
+        refs=lambda wildcards, input: get_files_commas(input[0] + "/dereplicated_genomes", sep=" ")
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 1500,
@@ -35,15 +35,20 @@ rule get_stb_viral:
         "cat {input.refs}/dereplicated_genomes/*.f* >> {output.concat}; "
         "parse_stb.py --reverse -f {params.refs}  -o {output.stb}"
 
+def get_pharokka_gbks(wildcards):
+    checkpoint_output = checkpoints.run_pharokka.get(**wildcards).output.dir
+    gbk_dir = os.path.join(checkpoint_output, "single_gbks")
+
+    # Get list of representative genomes (depends on previous checkpoint)
+    rep_genomes = get_representative_genomes_average(wildcards)
+
+    # Build full paths
+    gbk_paths = [os.path.join(gbk_dir, f"{g}.gbk") for g in rep_genomes]
+    return gbk_paths
+
 rule generate_genelist_viral:
     input:
-        ref=lambda wildcards: [
-            os.path.join(
-                "../results/vMAGs/annotations/pharokka/all_viruses/single_gbks",
-                f"{g}.gbk"
-            )
-            for g in get_representative_genomes_average(wildcards)
-        ]
+        ref=get_pharokka_gbks
     output:
         "../results/inStrain/all_drep_average_vMAG_representatives_cds.gbk"
     log:
