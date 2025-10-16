@@ -46,7 +46,9 @@ gtdb_parsed <- gtdb %>%
     unnest_wider(Classification) %>%
     mutate(Genus= gsub("Bombiscardovia", "Bifidobacterium", Genus),
            Species= gsub("Bombiscardovia", "Bifidobacterium", Species),
-           Species= gsub("polysaccharolytica", "polysaccharolyticum", Species)) 
+           Species= gsub("polysaccharolytica", "polysaccharolyticum", Species),
+           Species= gsub("Bifidobacterium coagulans", "Bombiscardovia coagulans", Species),
+           Genus= ifelse(Species=="Bombiscardovia coagulans", "Bombiscardovia", Genus))
 
 print(colnames(gtdb_parsed))
 
@@ -71,7 +73,9 @@ merged_data <- checkm_selected %>%
     left_join(., gen_info_selected, by = "Genome") %>%
     left_join(., gtdb_selected, by = "Genome") %>%
     mutate(Isolation_source = ifelse(is.na(Isolation_source), "Apis Mellifera", Isolation_source),
-            Isolation_source = ifelse(Species=="Bifidobacterium breve", "Unkown (Type Strain)", Isolation_source),
+            Isolation_source = ifelse(Species=="Bombiscardovia coagulans", "Bombus sp.", Isolation_source),
+             Isolation_source = ifelse(Species=="Bifidobacterium actinocoloniiformis", "Bombus locorum", Isolation_source),
+             Isolation_source = ifelse(Species=="Bifidobacterium xylocopae", "Xylocopa violacea", Isolation_source),
            BioSample = ifelse(is.na(BioSample), "TBD", BioSample),
            Strain = ifelse(is.na(Strain), Genome, Strain)) %>%
     select(Genome, Strain, Phylum, Class, Order, Family, Genus, Species, Isolation_source, Completeness, Contamination, Genome_Size_bp, Nr_contigs, N50_contigs, BioSample)

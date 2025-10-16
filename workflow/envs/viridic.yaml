@@ -1,0 +1,5 @@
+PacBioErrfunname: viridic
+channels:
+  - conda-forge
+dependencies:
+  - singularity=3*

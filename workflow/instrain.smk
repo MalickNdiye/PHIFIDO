@@ -39,13 +39,13 @@ rule generate_genelist_viral:
     input:
         ref=lambda wildcards: [
             os.path.join(
-                "../results/vMAGs/annotations/pharokka/all_viruses/single_fastas",
-                f"{g}.fasta"
+                "../results/vMAGs/annotations/pharokka/all_viruses/single_gbks",
+                f"{g}.gbk"
             )
             for g in get_representative_genomes_average(wildcards)
         ]
     output:
-        "../results/inStrain/all_drep_average_vMAG_representatives_cds.fna"
+        "../results/inStrain/all_drep_average_vMAG_representatives_cds.gbk"
     log:
         "logs/instrain/generate_gene_list_viruses.log"
     resources:
@@ -53,7 +53,9 @@ rule generate_genelist_viral:
         mem_mb = 20000,
         runtime= "10m"
     shell:
-        "cat {input.ref} > {output}"
+        "cat {input.ref} > {output}; "
+        # replace "locus_tag" with "gene" in the gene list
+        "sed -i 's/locus_tag/gene/g' {output}; "
 
 ############################################# Mapping #################################################################
 
@@ -123,12 +125,41 @@ rule generate_bam:
         "count=$(samtools view -c {output.bam}); "
         'echo -e "${{lib}}\t${{count}}" >> {output.cf}'
 
+rule mapping_stats:
+    input:
+        bam="../scratch_link/mapping/mapdata/{sample}_bowtie_mapping.bam"
+    output:
+        temp("../results/inStrain/mapping/mapping_stats_{sample}.tsv")
+    conda:
+        "envs/map_env.yaml"
+    threads: 1
+    log:
+        "logs/instrain/mapping/mapping_stats_{sample}.log"
+    shell:
+        "total=$(samtools view -c {input.bam}); "
+        "mapped=$(samtools view -c -F 4 {input.bam}); "
+        "echo -e '{wildcards.sample}\t'${{mapped}}'\t'${{total}} > {output}"
+
+rule concat_mapping_stats:
+    input:
+        expand("../results/inStrain/mapping/mapping_stats_{sample}.tsv", sample=[s for grp in config["samples"].values() for s in grp.keys()])
+    output:
+        "../results/inStrain/mapping/all_mapping_stats.tsv"
+    threads: 1
+    log:
+        "logs/instrain/mapping/concat_mapping_stats.log"
+    shell:
+        # echo header first and then append all files together
+        "echo -e 'Sample\tMapped_reads\tTotal_reads' > {output}; "
+        "cat {input} >> {output}; "
+        
+    
 ############################################# InStrain Profile ##########################################################
 rule instrain_profile:
     input:
         bam="../scratch_link/mapping/mapdata/{sample}_bowtie_mapping.bam",
         ref="../results/inStrain/all_drep_average_vMAG_representatives.fasta",
-        genL="../results/inStrain/all_drep_average_vMAG_representatives_cds.fna",
+        genL="../results/inStrain/all_drep_average_vMAG_representatives_cds.gbk",
         stb="../results/inStrain/all_drep_average_vMAG_representatives.stb" 
     output:
         dir=directory("../results/inStrain/profiles/{sample}_profile/")
@@ -144,12 +175,54 @@ rule instrain_profile:
     params:
         min_ANI=0.92
     shell:
-        "(inStrain profile {input.bam} {input.ref} -o {output.dir} --min_read_ani {params.min_ANI} -p {threads} -g {input.genL} -s {input.stb})2> {log}"
+        "(inStrain profile {input.bam} {input.ref} -o {output.dir} --min_read_ani {params.min_ANI} -p {threads} -g {input.genL} -s {input.stb}) "
+        "|| (mkdir -p {output.dir}/output "
+        "&& touch {output.dir}/output/{wildcards.sample}_profile_genome_info.tsv "
+        "&& touch {output.dir}/output/{wildcards.sample}_profile_gene_info.tsv "
+        "&& touch {output.dir}/output/{wildcards.sample}_nophage.done)"
 
 rule aggregate_inStrain:
     input:
-        dir=expand("../results/inStrain/profiles/{sample}_profile/", sample=config["samples"])
+        dir=expand("../results/inStrain/profiles/{sample}_profile/", sample=[s for grp in config["samples"].values() for s in grp.keys()]),
+        metadata="../data/metadata/sample_metadata.csv",
+        drep="../results/vMAGs/dereplication/dRep_summary_average.tsv"
     output:
-        tab="../results/inStrain/aggregate_profile.tsv"
+        directory("../results/inStrain/aggregated_data/")
+    conda:
+        "envs/base_R_env.yaml"
+    params:
+        gen_func="scripts/General_functions.R"
+    threads: 1
+    log:
+        "logs/instrain/aggregate_profile.log"
     shell:
-        "touch {output.tab}; "
+        "Rscript scripts/community_analysis/inStrain_aggregate.R -i {input.dir} -d {input.drep} -m {input.metadata} -g {params.gen_func} -o {output}"
+
+
+############################################# InStrain Compare #################################################################
+rule instrain_compare:
+    input:
+        IS=expand(
+            "../results/inStrain/profiles/{sample}_profile/",
+            sample=[
+                s
+                for grp in config["samples"].values()
+                for s in grp.keys()
+                if all(excl not in s for excl in ["Blank", "none", "CTRL"])
+            ]
+        ),
+        ref="../results/inStrain/all_drep_average_vMAG_representatives.fasta",
+        stb="../results/inStrain/all_drep_average_vMAG_representatives.stb"
+    output:
+        directory("../results/inStrain/compare")
+    threads: 25
+    conda:
+         "envs/inStrain.yaml"
+    log:
+        "logs/instrain/compare/compare.log"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 600000,
+        runtime= "7h"
+    shell:
+        "inStrain compare -i {input.IS} -o {output} -p {threads} -s {input.stb} --database_mode --store_mismatch_locations"

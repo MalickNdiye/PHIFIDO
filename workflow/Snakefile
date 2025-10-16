@@ -36,6 +36,12 @@ def concat_tables(tables_list, skip=0, delimiter="\t", head=0, names=False, name
     
     return(df)
 
+def get_reads(sample):
+    # Loop over all categories and return the R1/R2 pair for the given sample
+    for group in config["samples"].values():
+        if sample in group:
+            return group[sample]
+    raise ValueError(f"Sample {sample} not found in config")
 ###############################  Rules #######################################
 rule all:
     input:
@@ -89,8 +95,8 @@ rule parse_kraken_report:
 # This rule trims the raw reads using trimmomatic
 rule rawreads_trimming:
     input:
-        R1=lambda wildcards: config["samples"][wildcards.sample][0],
-        R2=lambda wildcards: config["samples"][wildcards.sample][1]
+        R1=lambda wildcards: get_reads(wildcards.sample)[0],
+        R2=lambda wildcards: get_reads(wildcards.sample)[1]
     output:
         R1_paired="../data/trimmed_reads/{sample}_R1_paired.fastq.gz",
         R2_paired="../data/trimmed_reads/{sample}_R2_paired.fastq.gz",
@@ -162,7 +168,7 @@ rule filter_bifido_paired:
 # This rule parses the refstats file and returns a summary of the results
 rule parse_filtering_refstats:
     input:
-        files=expand("../results/data_validation/filtered_reads/filt_mappings_stats/{sample}_refstats.out", sample=config["samples"])
+        files=expand("../results/data_validation/filtered_reads/filt_mappings_stats/{sample}_refstats.out", sample=[s for grp in config["samples"].values() for s in grp.keys()])
     output:
         "../results/data_validation/filtered_reads/filt_mappings_stats/bifido_reads_filtering_refstats.txt"
     threads: 2
@@ -258,6 +264,23 @@ rule run_vibrant:
     shell:
         "VIBRANT_run.py -i {input.assembly}/final.contigs.fa -folder {output.outdir} -d {params.db} -t {threads};"
 
+rule run_genomad:
+    input:
+        assembly = "../results/assembly/viral/{sample}_viral_assembly"
+    output:
+        dir=directory("../results/viral_identification/genomad/{sample}")
+    log:
+        "logs/viral_identification/genomad/{sample}_genomad.log"
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 10000,
+        runtime = "1h"
+    threads: 8
+    conda:
+        "envs/genomad.yaml"
+    shell:
+        "genomad.py -i {input.assembly}/final.contigs.fa -o {output.dir} -t {threads} --prodigal_mode meta"
+
 rule parse_vibrant:
     input:
         "../results/viral_identification/vibrant/{sample}"
@@ -278,7 +301,7 @@ rule parse_vibrant:
 
 rule aggregate_vibrant_summaries:
     input:
-        all_tabs=expand("../results/viral_identification/vibrant/summary/{sample}_vibrant_summary.tsv", sample=config["samples"])
+        all_tabs=expand("../results/viral_identification/vibrant/summary/{sample}_vibrant_summary.tsv", sample=list(config["samples"]["Ampliphage"].keys()))
     output:
         summ_tab="../results/viral_identification/vibrant/summary/vibrant_identification_summary.tsv"
     log:
@@ -313,7 +336,7 @@ rule Get_Viral_Contigs:
 
 rule aggragate_viral_contigs:
     input:
-        vmags=expand("../results/assembly/viral/{sample}_viral_contigs.fasta", sample=config["samples"]),
+        vmags=expand("../results/assembly/viral/{sample}_viral_contigs.fasta", sample=list(config["samples"]["Ampliphage"].keys())),
         isolates="../data/references/Honeybee_phage_isolates/Isolated_phages_genomes.fasta"
     output:
         "../results/assembly/viral/all_viral_contigs.fasta"
@@ -474,7 +497,7 @@ rule dereplicate_viral_contigs_single:
     conda:
         "envs/drep_env.yaml"
     shell:
-        "dRep dereplicate {output} -g {input.dir}/* --S_algorithm ANImf -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg single --ignoreGenomeQuality -p {threads}; "
+        "dRep dereplicate {output} -g {input.dir}/* --S_algorithm ANImf -pa 0.8 -sa 0.95 -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg single --ignoreGenomeQuality -p {threads}; "
 
 rule dereplicate_viral_contigs_average:
     input:
@@ -493,7 +516,7 @@ rule dereplicate_viral_contigs_average:
     conda:
         "envs/drep_env.yaml"
     shell:
-        "dRep dereplicate {output} -g {input.dir}/* --S_algorithm ANImf -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg average --ignoreGenomeQuality -p {threads}; "
+        "dRep dereplicate {output} -g {input.dir}/* --S_algorithm ANImf -pa 0.8 -sa 0.95 -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg average --ignoreGenomeQuality -p {threads}; "
 
 checkpoint parse_dRep_viruses_single:
     input:
@@ -552,49 +575,3 @@ include: "compare_vOTUs.smk"
 
 include: "instrain.smk"
 
-########################################## Community Mapping #############################################################
-rule coverm:
-    input:
-        R1="../data/trimmed_reads/{sample}_R1_paired.fastq.gz", # these are the filtered reads
-        R2="../data/trimmed_reads/{sample}_R2_paired.fastq.gz",
-        genomes="../results/vMAGs/dereplication/dRep_average"
-    output:
-       tab=temp("../results/mapping/{sample}_community_mapping.txt")
-    resources:
-        account="pengel_beemicrophage",
-        runtime="30m",
-        mem_mb = 50000
-    threads: 20
-    log:
-        "logs/mapping/{sample}_map.log"
-    conda:
-        "envs/coverm.yaml"
-    shell:
-        """
-        coverm genome -1 {input.R1} -2 {input.R2} -d {input.genomes}/dereplicated_genomes -x .fasta \
-            --mapper minimap2-sr --min-read-percent-identity 92 -m length count rpkm trimmed_mean covered_bases \
-            variance --min-covered-fraction 0 -t {threads} -o {output.tab}
-        """
-        
-rule aggregate_coverm:
-    input:
-        expand("../results/mapping/{sample}_community_mapping.txt", sample=config["samples"])
-    output:
-        all="../results/mapping/all_viral_community_mapping.txt"
-    resources:
-        account="pengel_beemicrophage",
-        runtime="10m",
-        mem_mb = 8000
-    threads: 1
-    log:
-        "logs/mapping/concat_mapping_data.log"
-    run:
-        import pandas as pd
-        
-        samples=list(config["samples"].keys())
-        dict_samples={"sample":samples}
-
-        df=concat_tables(input, skip=0, delimiter="\t", 
-            head=0, names=True, names_list=["genome", "length", "count", "rpkm","trimmed_mean", "covered_bases", "variance" ],
-            add=dict_samples)
-        df.to_csv(output.all, sep="\t", index=False)

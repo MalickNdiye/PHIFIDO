@@ -1,3 +1,6 @@
+################################## Bacterial genome general Analysis ##################################
+
+
 rule checkm_QC:
     input:
         assembly="../data/references/Bifido_genomes/"
@@ -58,6 +61,8 @@ rule Parse_bacterial_genomic_info:
     shell:
         "Rscript scripts/pangenomics/Parse_bacterial_genomic_info.R -g {input.genomic_info} -c {input.checkm} -d {input.gtdb}/gtdbtk.bac120.summary.tsv -o {output}"
 
+
+################################ Annotation of Bacterial Genomes #####################################################
 rule dram_annotate_genomes:
     input:
         dram_config =config["DRAM_CONFIG"],
@@ -94,6 +99,7 @@ rule move_genes_sam:
         "cp {input.fasta}/genes.faa {output.faa}; "
         "cp {input.fasta}/genes.fna {output.fna}"
 
+######################################### Pangenome Analysis & Phylogeny ##########################################################
 rule run_orthofinder:
     input:
         faas=expand("../results/pangenomics/bacteria/annotations/drammotate/cds/proteins/{bifido}_genes.faa", bifido=config["all_bifidos"]),
@@ -137,7 +143,7 @@ rule make_phylogeny:
         "../results/pangenomics/bacteria/Orthofinder/Bifido_OG_msa_clean.fa"
     output:
         directory("../results/pangenomics/bacteria/phylogeny/species_tree/")
-    threads: 15
+    threads: 25
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 100000,
@@ -146,11 +152,31 @@ rule make_phylogeny:
     conda:
         "envs/iqtree.yaml"
     params:
-        outgroup="Ga0098206_genes"
+        outgroup="Ga0098206_genes,Bombiscardovia_coagulans_DSM_22924_genes,Bifidobacterium_xylocopae_XV2_genes"
     shell:
         "mkdir -p {output}; "
-        "iqtree -s {input} -nt {threads} --model-joint NONREV -bb 1000 -pre {output}/Bifido_species_tree"
+        "iqtree3 -s {input} -m LG+F+I+G4 -bb 1000 -pre {output}/Bifido_species_tree -o {params.outgroup} -T {threads}"
 
+
+rule get_PD:
+    input:
+        tree="../results/pangenomics/bacteria/phylogeny/species_tree/"
+    output:
+        "../results/pangenomics/bacteria/phylogeny/Bifido_species_tree_PD.csv"
+    log: 
+        "logs/phylogeny/get_PD.log"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 5000,
+        runtime= "10m"
+    conda: 
+        "envs/base_R_env.yaml"
+    threads: 1
+    shell:
+        "Rscript scripts/pangenomics/get_PD.R -i {input.tree}/Bifido_species_tree.treefile -o {output}"
+
+
+################################# Defense Systems Identification ######################################################
 rule defense_finder_bacteria:
     input:
         bifido="../results/pangenomics/bacteria/annotations/drammotate/cds/proteins/{bifido}_genes.faa"

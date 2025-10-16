@@ -42,7 +42,7 @@ rule defense_finder_viruses:
 rule split_pharokka_vOTU:
     input:
         annot="../results/vMAGs/annotations/pharokka/all_viruses",
-        drep="../results/vMAGs/dereplication/dRep_summary_single.tsv"
+        drep="../results/vMAGs/dereplication/dRep_summary_average.tsv"
     output:
         directory("../scratch_link/annotations_vOTU/{vOTU}")
     resources:
@@ -81,7 +81,7 @@ rule gene_2_genome:
 rule run_vcontact:
     input:
         all_vprot = "../results/pangenomics/viruses/Vcontact2/all_viral_proteins.faa",
-        gene_2_genome = "../results/pangenomics/viruses/Vcontact2/gene_to_genome.csv"
+        gene_2_genome = "../results/pangenomics/viruses/Vcontact2/gene_to_genome_drep.csv"
     output:
         directory("../results/pangenomics/viruses/Vcontact2/vCONTACT_results")
     threads: 48
@@ -102,6 +102,30 @@ rule run_vcontact:
 
 
 ###############################  Phylogeny #############################################################
+rule viridic_all_genomes:
+    input:
+        "../results/assembly/viral/all_viral_contigs.fasta"
+    output:
+        directory("../results/pangenomics/viruses/viridic")
+    threads: 20
+    log:
+        "logs/pangenomics/phages/viridic_allGenomes.log"
+    conda:
+        "envs/viridic.yaml"
+    params:
+        viridic_sing="../resources/databases/containers/viridic_v1.1",
+        abs_path="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/workflow"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 50000,
+        runtime= "12h"
+    shell:
+        "mkdir -p {output}; "
+        "cd {params.viridic_sing}; "
+        "in=$(basename {input}); "
+        "indir=$(dirname {input}); "
+        "singularity run -B \"{params.abs_path}/${{indir}}:/viridic/viridic_scripts/in\" -B \"{params.abs_path}/{output}:/viridic/viridic_scripts/out\" viridic_singularity_v1.1.simg projdir=/viridic/viridic_scripts/out in=/viridic/viridic_scripts/in/${{in}} ncor={threads}"
+
 
 rule viral_phylogeny: 
     input:
