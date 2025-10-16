@@ -746,6 +746,7 @@ PHABOX_DB: /work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/phabox_db_v2
 CHECKM_DB: /work/FAC/FBM/DMF/pengel/default/mndiaye1/checkm_db
 GTDB: /work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/release226
 SPACERS_DB: /work/FAC/FBM/DMF/pengel/beemicrophage/mndiaye1/PHOSTER/results/spacers_db/spacersDB
+GENOMAD_DB: ../resources/databases/genomad_db
 
 # Environments & Configs
 DRAM_CONFIG: ../config/dram_config.json

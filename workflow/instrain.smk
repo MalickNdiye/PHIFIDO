@@ -16,7 +16,7 @@ def get_files_commas(path, sep=",", remove_hidden=True):
 ############################################# InStrain SetUp ##########################################################
 rule get_stb_viral:
     input:
-        refs="../results/vMAGs/dereplication/dRep_average/dereplicated_genomes/"
+        refs="../results/vMAGs/dereplication/dRep_average"
     output:
         concat="../results/inStrain/all_drep_average_vMAG_representatives.fasta",
         stb="../results/inStrain/all_drep_average_vMAG_representatives.stb"
@@ -32,7 +32,7 @@ rule get_stb_viral:
         mem_mb = 1500,
         runtime= "30m"
     shell:
-        "cat {input.refs}/*.f* >> {output.concat}; "
+        "cat {input.refs}/dereplicated_genomes/*.f* >> {output.concat}; "
         "parse_stb.py --reverse -f {params.refs}  -o {output.stb}"
 
 rule generate_genelist_viral:
