@@ -61,27 +61,30 @@ rule split_pharokka_vOTU:
 ################################ Vcontact2 #############################################################
 rule gene_2_genome:
     input:
-        all_vprot = "../results/vMAGs/annotations/pharokka/all_viruses"
+        all_vprot = "../results/vMAGs/annotations/pharokka/all_viruses",
+        phoster_ref= "../data/references/PHOSTER_references/PHOSTER_vOTUs.faa"
     output:
         all_prot="../results/pangenomics/viruses/Vcontact2/all_viral_proteins.faa",
+        all_prot_and_ref="../results/pangenomics/viruses/Vcontact2/all_viral_proteins_PlusPhoster.faa",
         gene_2_genome = "../results/pangenomics/viruses/Vcontact2/gene_to_genome_drep.csv"
     threads: 1
-    conda:
-        "envs/mags_env.yaml"
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 8000,
         runtime= "10m"
+    conda:
+        "envs/bacphlip.yaml"
     log:
         "logs/vcontact/gene_to_genome.log"
     shell:
         "cat {input.all_vprot}/single_faas/*.faa > {output.all_prot}; "
-        "python scripts/Viral_classification/gene2genome.py -p {output.all_prot} -o {output.gene_2_genome} -s 'Prodigal-FAA'"
+        "cat {output.all_prot} {input.phoster_ref} > {output.all_prot_and_ref}; "
+        "python scripts/pangenomics/gene2genome.py -p {output.all_prot_and_ref} -o {output.gene_2_genome} -s 'Prodigal-FAA'"
 
 # Run vContact2
 rule run_vcontact:
     input:
-        all_vprot = "../results/pangenomics/viruses/Vcontact2/all_viral_proteins.faa",
+        all_vprot = "../results/pangenomics/viruses/Vcontact2/all_viral_proteins_PlusPhoster.faa",
         gene_2_genome = "../results/pangenomics/viruses/Vcontact2/gene_to_genome_drep.csv"
     output:
         directory("../results/pangenomics/viruses/Vcontact2/vCONTACT_results")
@@ -93,7 +96,7 @@ rule run_vcontact:
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 512000,
-        runtime= "2d"
+        runtime= "1d"
     shell:
         """
         bash -c '. $HOME/.bashrc

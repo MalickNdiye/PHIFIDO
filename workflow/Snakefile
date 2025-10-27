@@ -48,7 +48,8 @@ rule all:
         "../results/vMAGs/lifestyle",
         "../results/vMAGs/taxonomy",
         "../results/pangenomics/viruses/viridic",
-        "../results/inStrain/compare"
+        "../results/inStrain/compare",
+         "../results/inStrain/mapping/all_mapping_stats.tsv"
 
 
 ####################################################################################
@@ -327,7 +328,7 @@ rule parse_genomad:
 
 rule aggregate_vibrant_summaries:
     input:
-        all_tabs=expand("../results/viral_identification/vibrant/summary/{sample}_vibrant_summary.tsv", sample=list(config["samples"]["Ampliphage"].keys())),
+        all_tabs=expand("../results/viral_identification/vibrant/summary/{sample}_vibrant_summary.tsv", sample=[s for grp in config["samples"].values() for s in grp.keys()]),
         all_genomad=expand("../results/viral_identification/genomad/summary/{bifi}_genomad_summary.tsv", bifi=config["BiCom"])
     output:
         summ_tab="../results/viral_identification/vibrant/summary/vibrant_identification_summary.tsv"
@@ -365,7 +366,7 @@ rule Get_Viral_Contigs:
 
 rule aggragate_viral_contigs:
     input:
-        vmags=expand("../results/assembly/viral/{sample}_viral_contigs.fasta", sample=list(config["samples"]["Ampliphage"].keys())),
+        vmags=expand("../results/assembly/viral/{sample}_viral_contigs.fasta", sample=[s for grp in config["samples"].values() for s in grp.keys()]),
         prophages=expand("../results/viral_identification/genomad/summary/genomad_{bifi}_prophages.fasta", bifi=config["BiCom"]),
         isolates="../data/references/Honeybee_phage_isolates/Isolated_phages_genomes.fasta"
     output:
@@ -412,103 +413,8 @@ def read_file_list():
         return [line.strip() for line in f]
 
 
-############################### Polishing ########################################################################
-# this rule runs checkV on the binned viral contigs
-rule run_checkv:
-    input:
-        assembly = "../results/assembly/viral/all_viral_contigs.fasta"
-    output:
-        dir=directory("../results/vMAGs/QC/Checkv")
-    params:
-        db=config["CHECKV_DB"]
-    resources:
-        account="pengel_beemicrophage",
-        mem_mb= 100000,
-        runtime = "1h"
-    threads:10
-    conda:
-        "envs/checkv.yaml"
-    log:
-        "logs/vMAGs/checkV.log"
-    shell:
-        "checkv end_to_end {input.assembly} {output.dir} -t {threads} -d {params.db}"
 
-rule lifestyle:
-    input:
-        viruses="../results/assembly/viral/all_viral_contigs.fasta"
-    output:
-        directory("../results/vMAGs/lifestyle")
-    threads: 10
-    log:
-        "logs/vMAGs/lifestyle.log"
-    conda:
-        "envs/bacphlip.yaml"
-    resources:
-        account = "pengel_beemicrophage",
-        mem_mb = 100000,
-        runtime= "1h"
-    shell:
-        "bacphlip -i {input.viruses} --multi_fasta -f; "
-        "mkdir -p {output}; "
-        "mv {input.viruses}.BACPHLIP_DIR {input.viruses}.bacphlip* {input.viruses}.hmmsearch* {output}"
-
-rule taxonomy:
-    input:
-        viruses="../results/assembly/viral/all_viral_contigs.fasta"
-    output:
-        directory("../results/vMAGs/taxonomy")
-    threads: 10
-    log:
-        "logs/vMAGs/taxonomy.log"
-    conda:
-        "envs/phabox.yaml"
-    params:
-        db=config["PHABOX_DB"]
-    resources:
-        account = "pengel_beemicrophage",
-        mem_mb = 100000,
-        runtime= "1h"
-    shell:
-        "phabox2 --task phagcn --dbdir {params.db} --contigs {input.viruses} --outpth {output} --threads {threads}"
-
-###############################  Phage-Host prediction #############################################################
-
-rule assign_host:
-    input:
-        phageDB="../results/assembly/viral/{sample}_viral_contigs.fasta",
-        spacers_db=config["SPACERS_DB"]
-    output:
-        blastout=temp("../results/phage_host_link/spacers_{sample}_blastout.txt")
-    log:
-        "logs/phage_host_link/CRIPR_match_{sample}.log"
-    threads: 10
-    conda:
-        "envs/CrisprOpenDB.yaml"
-    params:
-        DB="resources/default_DBs/CrisprOpenDB"
-    resources:
-        account = "pengel_beemicrophage",
-        mem_mb = 100000,
-        runtime= "1h"
-    shell:
-        "blastn -query {input.phageDB} -task blastn-short -db {input.spacers_db}/mySpacersDB -outfmt '6 qseqid sseqid pident length mismatch gapopen qstart qend sstart send evalue bitscore' -out {output.blastout} -num_threads {threads}"
-
-rule aggregate_assign_host:
-    input:
-        blastout=expand("../results/phage_host_link/spacers_{sample}_blastout.txt", sample=config["samples"])
-    output:
-        all_blastout="../results/phage_host_link/all_spacers_blastout.txt"
-    log:
-        "logs/phage_host_link/aggregate_assign_host.log"
-    threads: 1
-    resources:
-        account = "pengel_beemicrophage",
-        mem_mb = 100000,
-        runtime= "10m"
-    shell:
-        "echo -e 'Query\tSPACER_ID\tidentity\talignement_length\tmismatch\tgap\tq_start\tq_end\ts_start\ts_end\te_value\tscore' > {output.all_blastout}; "
-        "tail -n +2 -q {input.blastout} >> {output.all_blastout}; "
-
+include: "vMAGs_info.smk"
 
 ################################# Dereplicate viral genomes #############################################################
 rule dereplicate_viral_contigs_single:
@@ -547,7 +453,7 @@ rule dereplicate_viral_contigs_average:
     conda:
         "envs/drep_env.yaml"
     shell:
-        "dRep dereplicate {output} -g {input.dir}/* --S_algorithm ANImf -pa 0.8 -sa 0.95 -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg average --ignoreGenomeQuality -p {threads}; "
+        "dRep dereplicate {output.drep} -g {input.dir}/* --S_algorithm ANImf -pa 0.8 -sa 0.95 -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg average --ignoreGenomeQuality -p {threads}"
 
 checkpoint parse_dRep_viruses_single:
     input:
@@ -584,6 +490,51 @@ checkpoint parse_dRep_viruses_average:
         "envs/base_R_env.yaml"
     shell:
         "Rscript scripts/vMAGs_handling/parse_drep_viruses.R -i {input.drep} -m {input.metadata}/quality_summary.tsv -o {output.tab}"
+
+
+# rule check_drep_average_clustering:
+#     input:
+#         drep="../results/vMAGs/dereplication/dRep_average",
+#         vOTU_summary="../results/vMAGs/dereplication/dRep_summary_average.tsv"
+#     output:
+#         all_vs_all="../results/vMAGs/dereplication/ANImf_all_vs_all_average.tsv",
+#         problematic_vOTU="../results/vMAGs/dereplication/vOTU_problematic.tsv"
+#     resources:
+#         account="pengel_beemicrophage",
+#         runtime="30m",
+#         mem_mb=20000
+#     threads: 1
+#     log:
+#         "logs/vMAGs/dereplication/build_pairwise.log"
+#     conda:
+#         "envs/base_R_env.yaml"
+#     shell:
+#         "Rscript scripts/vMAGs_handling/build_vOTU_pairwise_table.R "
+#         "-i {input.drep} "
+#         "-s {input.vOTU_summary} "
+#         "-o {output.all_vs_all} "
+#         "-p {output.problematic_vOTU}"
+
+# rule merge_problematic_vOTUs:
+#     input:
+#         vOTU_table="../results/vMAGs/dereplication/DRep_summary_average.tsv",
+#         problematic="../results/vMAGs/dereplication/vOTU_problematic.tsv"
+#     output:
+#         updated_vOTU="../results/vMAGs/dereplication/DRep_summary_average_updated.tsv"
+#     resources:
+#         account="pengel_beemicrophage",
+#         runtime="10m",
+#         mem_mb=8000
+#     threads: 1
+#     log:
+#         "logs/vMAGs/dereplication/merge_vOTUs_transitive.log"
+#     conda:
+#         "envs/base_R_env.yaml"
+#     shell:
+#         "Rscript scripts/vMAGs_handling/merge_problematic_vOTUs_transitive_with_rep.R "
+#         "-i {input.vOTU_table} "
+#         "-p {input.problematic} "
+#         "-o {output.updated_vOTU}"
 
 
 def get_representative_genomes_average(wildcards):

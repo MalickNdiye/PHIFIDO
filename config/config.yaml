@@ -751,3 +751,7 @@ GENOMAD_DB: ../resources/databases/genomad_db
 # Environments & Configs
 DRAM_CONFIG: ../config/dram_config.json
 CONDA_ENV_VCONTACT2: /work/FAC/FBM/DMF/pengel/beemicrophage/mndiaye1/PHOSTER/workflow/resources/conda_envs/vcontact2
+
+# Metadata
+PHOSTER_BACTERIA_METADATA: ../data/metadata/PHOSTER_all_bacterial_genomes_info.tsv
+SPACERS_METADATA: ../data/references/short_RefSeqs/spacers_metadata_filtered.tsv

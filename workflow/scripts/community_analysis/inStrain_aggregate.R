@@ -219,7 +219,7 @@ write.csv(formatted_data, output_file, row.names = FALSE, quote = FALSE)
 # filter data
 print("Filtering data for vOTUs with breadth >= 0.7 and quality")
 filtered_data<- formatted_data %>%
-    filter(breadth>=0.7, vOTU %in% vOTU_qual_keep) %>%
+    filter(round(breadth,1)>=0.7, vOTU %in% vOTU_qual_keep) %>%
     group_by(sample) %>%
     mutate(rel_ab= coverage / sum(coverage, na.rm = TRUE)) %>%
     ungroup() %>%

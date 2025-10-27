@@ -14,9 +14,20 @@ def get_files_commas(path, sep=",", remove_hidden=True):
     return(out)
 
 ############################################# InStrain SetUp ##########################################################
+def get_avg_representative_fasta(wildcards):
+    checkpoint_output = checkpoints.split_viral_contigs.get(**wildcards).output.dir
+
+    # Get list of representative genomes (depends on previous checkpoint)
+    rep_genomes = get_representative_genomes_average(wildcards)
+
+    # Build full paths
+    aveg_rep_paths = [os.path.join(checkpoint_output, f"{g}.fasta") for g in rep_genomes]
+    return aveg_rep_paths
+
+
 rule get_stb_viral:
     input:
-        refs="../results/vMAGs/dereplication/dRep_average"
+        refs=get_avg_representative_fasta
     output:
         concat="../results/inStrain/all_drep_average_vMAG_representatives.fasta",
         stb="../results/inStrain/all_drep_average_vMAG_representatives.stb"
@@ -25,15 +36,13 @@ rule get_stb_viral:
     threads: 2
     conda:
         "envs/drep_env.yaml"
-    params:
-        refs=lambda wildcards, input: get_files_commas(input[0] + "/dereplicated_genomes", sep=" ")
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 1500,
         runtime= "30m"
     shell:
-        "cat {input.refs}/dereplicated_genomes/*.f* >> {output.concat}; "
-        "parse_stb.py --reverse -f {params.refs}  -o {output.stb}"
+        "cat {input.refs} >> {output.concat}; "
+        "parse_stb.py --reverse -f {input.refs}  -o {output.stb}"
 
 def get_pharokka_gbks(wildcards):
     checkpoint_output = checkpoints.run_pharokka.get(**wildcards).output.dir
@@ -213,7 +222,7 @@ rule instrain_compare:
                 s
                 for grp in config["samples"].values()
                 for s in grp.keys()
-                if all(excl not in s for excl in ["Blank", "none", "CTRL"])
+                if all(excl not in s for excl in ["Blank", "none", "CTRL"]) # exclude blanks and controls
             ]
         ),
         ref="../results/inStrain/all_drep_average_vMAG_representatives.fasta",
