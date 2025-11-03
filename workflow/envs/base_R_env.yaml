@@ -17,3 +17,6 @@ dependencies:
  - r-data.table
  - r-optparse
  - r-argparse
+ - r-ggpubr
+ - r-vegan
+ - r-purrr

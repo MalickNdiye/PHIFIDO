@@ -123,7 +123,8 @@ rule aggregate_vMAGs_info:
         lifestyle="../results/vMAGs/lifestyle",
         taxonomy="../results/vMAGs/taxonomy",
         checkv="../results/vMAGs/QC/Checkv",
-        phage_host="../results/phage_host_link/spacers_phage_host_links_summary.tsv"
+        phage_host="../results/phage_host_link/spacers_phage_host_links_summary.tsv",
+        drep="../results/vMAGs/dereplication/dRep_summary_average.tsv"
     output:
         "../results/vMAGs/vMAGs_summary.tsv"
     log:
@@ -136,4 +137,31 @@ rule aggregate_vMAGs_info:
     conda:
         "envs/base_R_env.yaml"
     shell:
-        "Rscript scripts/vMAGs_handling/aggregate_vMAGs_info.R -l {input.lifestyle} -t {input.taxonomy} -c {input.checkv} -p {input.phage_host} -o {output}"
+        "Rscript scripts/vMAGs_handling/aggregate_vMAGs_info.R -l {input.lifestyle} -t {input.taxonomy} -c {input.checkv} -p {input.phage_host} -d {input.drep} -o {output}"
+
+
+# rule to filter good quality vMAGs based on checkV results
+rule filter_good_vMAGs:
+    input:
+        vMAGs_info="../results/vMAGs/vMAGs_summary.tsv",
+        assembly="../results/assembly/viral/all_viral_contigs.fasta"
+    output:
+        "../results/assembly/viral/all_HQ_viral_contigs.fasta"
+    log:
+        "logs/vMAGs/filter_good_vMAGs.log"
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 10000,
+        runtime= "10m"
+    threads: 1
+    run:
+        import pandas as pd
+        from Bio import SeqIO
+
+        vMAGs_info = pd.read_csv(input.vMAGs_info, sep="\t")
+        good_quality_contigs = vMAGs_info[vMAGs_info['checkv_quality'].isin(['Medium-quality', 'High-quality', 'Complete'])]['genome'].tolist()
+
+        with open(output[0], "w") as out_f:
+            for record in SeqIO.parse(input.assembly, "fasta"):
+                if record.id in good_quality_contigs:
+                    SeqIO.write(record, out_f, "fasta")

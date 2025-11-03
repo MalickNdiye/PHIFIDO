@@ -1,3 +1,22 @@
+rule get_vOTU_order:
+    input:
+        drep="../results/vMAGs/dereplication/dRep_summary_average.tsv",
+        ANI="../results/vMAGs/vMAGs_ANI_comparison.txt"
+    output:
+        temp("../scratch_link/{vOTU}_align_order.txt")
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 5000,
+        runtime = "20m"
+    threads:1
+    conda:
+        "envs/base_R_env.yaml"
+    log:
+        "logs/vMAGs/order_{vOTU}.log"
+    shell:
+        "Rscript scripts/vMAGs_handling/get_vOTU_order.R -d {input.drep} -a {input.ANI} -v {wildcards.vOTU} -o {output}"
+
+
 rule fastani_phages:
     input:
         viruses="../results/assembly/viral/single_genomes_list.txt"
@@ -14,31 +33,13 @@ rule fastani_phages:
         runtime= "30m"
     shell:
         "fastANI --ql {input.viruses} --rl {input.viruses} -t {threads} --fragLen 100 -o {output}; "
-
-rule get_vOTU_order:
-    input:
-        drep="../results/vMAGs/dereplication/dRep_summary_single.tsv",
-        ANI="../results/vMAGs/vMAGs_ANI_comparison.txt"
-    output:
-        temp("../scratch_link/{vOTU}_align_order.txt")
-    resources:
-        account="pengel_beemicrophage",
-        mem_mb= 5000,
-        runtime = "20m"
-    threads:1
-    conda:
-        "envs/base_R_env.yaml"
-    log:
-        "logs/vMAGs/order_{vOTU}.log"
-    shell:
-        "Rscript scripts/vMAGs_handling/get_vOTU_order.R -d {input.drep} -a {input.ANI} -v {wildcards.vOTU} -o {output}"
-
+        
 rule mafft_VOTU:
     input:
         annot="../scratch_link/annotations_vOTU/{vOTU}",
         order="../scratch_link/{vOTU}_align_order.txt"
     output:
-        "../results/alignments_vOTUs/{vOTU}_mafft_aln.fasta"
+        "../results/alignments_vOTUs/mafft/{vOTU}_mafft_aln.fasta"
     resources:
         account="pengel_beemicrophage",
         mem_mb= 100000,
@@ -66,7 +67,7 @@ rule pgv_VOTU:
         annot="../scratch_link/annotations_vOTU/{vOTU}",
         order="../scratch_link/{vOTU}_align_order.txt"
     output:
-        directory("../scratch_link/pgv_vOTUs/{vOTU}_pgv")
+        directory("../results/alignments_vOTUs/pgv/{vOTU}_pgv")
     resources:
         account="pengel_beemicrophage",
         mem_mb= 100000,
@@ -86,16 +87,16 @@ rule pgv_VOTU:
 def get_vOTU_names(wildcards):
     import pandas
 
-    file=checkpoints.parse_dRep_viruses_single.get(**wildcards).output[0]
+    file=checkpoints.parse_dRep_viruses_average.get(**wildcards).output[0]
     df=pandas.read_csv(file, sep="\t")
     vOTU=df["vOTU"].tolist()
     return expand("../results/alignments_vOTUs/{vOTU}_mafft_aln.fasta", vOTU=vOTU) + \
-           expand("../scratch_link/pgv_vOTUs/{vOTU}_pgv", vOTU=vOTU)
+           expand("../results/alignments_vOTUs/pgv/{vOTU}_pgv", vOTU=vOTU)
 
 def get_tageted_vOTU_names(wildcards):
     import pandas
 
-    file=checkpoints.parse_dRep_viruses_single.get(**wildcards).output[0]
+    file=checkpoints.parse_dRep_viruses_average.get(**wildcards).output[0]
     df=pandas.read_csv(file, sep="\t")
 
     # remove all rows where checkv_quality is "Low-quality"
@@ -105,14 +106,21 @@ def get_tageted_vOTU_names(wildcards):
 
 
     vOTU=df_filt["vOTU"].tolist()
-    return expand("../results/alignments_vOTUs/{vOTU}_mafft_aln.fasta", vOTU=vOTU) + \
-           expand("../scratch_link/alignments_vOTUs/{vOTU}_pgv", vOTU=vOTU)
+    return expand("../results/alignments_vOTUs/mafft/{vOTU}_mafft_aln.fasta", vOTU=vOTU) + \
+           expand("../results/alignments_vOTUs/pgv/{vOTU}_pgv", vOTU=vOTU)
 
 rule gather_vOTU_aln:
     input: 
         get_tageted_vOTU_names
     output:
         "../results/alignments_vOTUs/aln_vOTUs.done"
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 1000,
+        runtime = "10m"
+    threads:1
+    log:
+        "logs/aligments/gather_vOTU_aln.log"
     shell:
         "touch {output}"
 

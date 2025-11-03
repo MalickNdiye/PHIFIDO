@@ -47,9 +47,9 @@ rule all:
     input:
         "../results/vMAGs/lifestyle",
         "../results/vMAGs/taxonomy",
-        "../results/pangenomics/viruses/viridic",
-        "../results/inStrain/compare",
-         "../results/inStrain/mapping/all_mapping_stats.tsv"
+        "../results/inStrain/aggregated_data/",
+        "../results/data_validation/kraken2_output/Summary/all_samples_report.txt",
+        "../results/inStrain/mapping/all_mapping_stats.tsv"
 
 
 ####################################################################################
@@ -383,9 +383,11 @@ rule aggragate_viral_contigs:
         "cat {input.prophages} >> {output}; "
         "cat {input.isolates} >> {output}"
 
+include: "vMAGs_info.smk"
+
 checkpoint split_viral_contigs:
     input:
-        "../results/assembly/viral/all_viral_contigs.fasta"
+        HQ="../results/assembly/viral/all_HQ_viral_contigs.fasta"
     output:
         dir=directory("../results/assembly/viral/single_genomes/"),
         list_genomes="../results/assembly/viral/single_genomes_list.txt"
@@ -398,44 +400,21 @@ checkpoint split_viral_contigs:
         "logs/viral_identification/split_contigs.log"
     shell:
         """
-        python scripts/split_assembly.py -f {input} -d {output.dir}
+        python scripts/split_assembly.py -f {input.HQ} -d {output.dir}
         ls {output.dir}/*.fasta > {output.list_genomes}
         """
 
-def get_generated_files(wildcards):
-    # Use `get()` to retrieve the directory created by the checkpoint
-    checkpoint_output = checkpoints.split_viral_contigs.get().output[0]
-    # List files in the directory to use them as input for subsequent rules
-    return glob_wildcards(f"{checkpoint_output}/{{file}}.fasta").file
+# def get_generated_files(wildcards):
+#     # Use `get()` to retrieve the directory created by the checkpoint
+#     checkpoint_output = checkpoints.split_viral_contigs.get().output[0]
+#     # List files in the directory to use them as input for subsequent rules
+#     return glob_wildcards(f"{checkpoint_output}/{{file}}.fasta").file
 
 def read_file_list():
     with open("file_list.txt") as f:
         return [line.strip() for line in f]
 
-
-
-include: "vMAGs_info.smk"
-
 ################################# Dereplicate viral genomes #############################################################
-rule dereplicate_viral_contigs_single:
-    input:
-        dir="../results/assembly/viral/single_genomes/"
-    output:
-        drep=directory("../results/vMAGs/dereplication/dRep_single")
-    resources:
-        account="pengel_beemicrophage",
-        runtime="3h",
-        mem_mb = 200000
-    threads: 20
-    log:
-        "logs/vMAGs/dereplication/drep_single.log"
-    benchmark:
-        "logs/vMAGs/dereplication/drep_single.benchmark"
-    conda:
-        "envs/drep_env.yaml"
-    shell:
-        "dRep dereplicate {output} -g {input.dir}/* --S_algorithm ANImf -pa 0.8 -sa 0.95 -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg single --ignoreGenomeQuality -p {threads}; "
-
 rule dereplicate_viral_contigs_average:
     input:
         dir="../results/assembly/viral/single_genomes/"
@@ -453,25 +432,7 @@ rule dereplicate_viral_contigs_average:
     conda:
         "envs/drep_env.yaml"
     shell:
-        "dRep dereplicate {output.drep} -g {input.dir}/* --S_algorithm ANImf -pa 0.8 -sa 0.95 -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg average --ignoreGenomeQuality -p {threads}"
-
-checkpoint parse_dRep_viruses_single:
-    input:
-        drep="../results/vMAGs/dereplication/dRep_single",
-        metadata="../results/vMAGs/QC/Checkv"
-    output:
-        tab="../results/vMAGs/dereplication/dRep_summary_single.tsv"
-    resources:
-        account="pengel_beemicrophage",
-        runtime="10m",
-        mem_mb = 8000
-    threads: 1
-    log:
-        "logs/vMAGs/dereplication/parse_drep_single.log"
-    conda:
-        "envs/base_R_env.yaml"
-    shell:
-        "Rscript scripts/vMAGs_handling/parse_drep_viruses.R -i {input.drep} -m {input.metadata}/quality_summary.tsv -o {output.tab}"
+        "dRep dereplicate {output.drep} -g {input.dir}/* --S_algorithm ANImf -pa 0.5 -sa 0.95 -nc 0.85 -l 5000 -N50W 0 -sizeW 1 --clusterAlg average --ignoreGenomeQuality -p {threads}"
 
 checkpoint parse_dRep_viruses_average:
     input:
@@ -492,54 +453,9 @@ checkpoint parse_dRep_viruses_average:
         "Rscript scripts/vMAGs_handling/parse_drep_viruses.R -i {input.drep} -m {input.metadata}/quality_summary.tsv -o {output.tab}"
 
 
-# rule check_drep_average_clustering:
-#     input:
-#         drep="../results/vMAGs/dereplication/dRep_average",
-#         vOTU_summary="../results/vMAGs/dereplication/dRep_summary_average.tsv"
-#     output:
-#         all_vs_all="../results/vMAGs/dereplication/ANImf_all_vs_all_average.tsv",
-#         problematic_vOTU="../results/vMAGs/dereplication/vOTU_problematic.tsv"
-#     resources:
-#         account="pengel_beemicrophage",
-#         runtime="30m",
-#         mem_mb=20000
-#     threads: 1
-#     log:
-#         "logs/vMAGs/dereplication/build_pairwise.log"
-#     conda:
-#         "envs/base_R_env.yaml"
-#     shell:
-#         "Rscript scripts/vMAGs_handling/build_vOTU_pairwise_table.R "
-#         "-i {input.drep} "
-#         "-s {input.vOTU_summary} "
-#         "-o {output.all_vs_all} "
-#         "-p {output.problematic_vOTU}"
-
-# rule merge_problematic_vOTUs:
-#     input:
-#         vOTU_table="../results/vMAGs/dereplication/DRep_summary_average.tsv",
-#         problematic="../results/vMAGs/dereplication/vOTU_problematic.tsv"
-#     output:
-#         updated_vOTU="../results/vMAGs/dereplication/DRep_summary_average_updated.tsv"
-#     resources:
-#         account="pengel_beemicrophage",
-#         runtime="10m",
-#         mem_mb=8000
-#     threads: 1
-#     log:
-#         "logs/vMAGs/dereplication/merge_vOTUs_transitive.log"
-#     conda:
-#         "envs/base_R_env.yaml"
-#     shell:
-#         "Rscript scripts/vMAGs_handling/merge_problematic_vOTUs_transitive_with_rep.R "
-#         "-i {input.vOTU_table} "
-#         "-p {input.problematic} "
-#         "-o {output.updated_vOTU}"
-
-
 def get_representative_genomes_average(wildcards):
     import pandas as pd
-    summary_file = checkpoints.parse_dRep_viruses_average.get().output[0]
+    summary_file = checkpoints.parse_dRep_viruses_average.get().output.tab
     
     if not os.path.exists(summary_file):
         return []  # return empty list while Snakemake is resolving dependencies
@@ -548,6 +464,16 @@ def get_representative_genomes_average(wildcards):
     rep_genomes = df.loc[df["representative"].astype(str).str.upper() == "TRUE", "genome"].tolist()
 
     return rep_genomes
+
+def get_avg_representative_fasta(wildcards):
+    checkpoint_output = checkpoints.split_viral_contigs.get(**wildcards).output.dir
+
+    # Get list of representative genomes (depends on previous checkpoint)
+    rep_genomes = get_representative_genomes_average(wildcards)
+
+    # Build full paths
+    aveg_rep_paths = [os.path.join(checkpoint_output, f"{g}.fasta") for g in rep_genomes]
+    return aveg_rep_paths
 
 ############################### Phage Pangenome ########################################################################
 

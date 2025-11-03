@@ -1,22 +1,4 @@
-# Annotate phage genomes
-checkpoint run_pharokka:
-    input:
-        assembly = "../results/assembly/viral/all_viral_contigs.fasta"
-    output:
-        dir=directory("../results/vMAGs/annotations/pharokka/all_viruses")
-    params:
-        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/pharokka_db"
-    resources:
-        account="pengel_beemicrophage",
-        mem_mb= 100000,
-        runtime = "1h"
-    threads:16
-    conda:
-        "envs/pharokka.yaml"
-    log:
-        "logs/vMAGs/pharokka_allgenomes.log"
-    shell:
-        "pharokka.py -i {input} -o {output} -d {params.db} -t {threads} --meta --split" 
+
 
 
 rule defense_finder_viruses: 
@@ -104,11 +86,31 @@ rule run_vcontact:
             vcontact2 -t {threads} --raw-proteins {input.all_vprot} --rel-mode 'Diamond' --proteins-fp {input.gene_2_genome} --db 'ProkaryoticViralRefSeq211-Merged' --pcs-mode MCL --vcs-mode ClusterONE --c1-bin {params.condaenv}/bin/cluster_one-1.0.jar --output-dir {output} -e 'cytoscape' -e 'csv''
         """
 
+rule analyse_vcontact:
+    input:
+        vcontact="../results/pangenomics/viruses/Vcontact2/vCONTACT_results",
+        comm="../results/vMAGs/dereplication/dRep_summary_average.tsv",
+        gen_info="../results/vMAGs/vMAGs_summary.tsv"
+    output:
+        "../results/pangenomics/viruses/Vcontact2/vcontact_analysis/"
+    threads: 1
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 10000,
+        runtime= "10m"
+    conda: "envs/base_R_env.yaml"
+    params: 
+        "scripts/pangenomics/analyze_vcontact.R"
+    log:
+        "logs/vcontact/analyze_vcontact.log"
+    shell:
+        "Rscript scripts/pangenomics/analyze_vcontact.R -i {input.vcontact}/c1.ntw -d {input.drep}/vircom_data_filtered_updated.csv -g {input.gen_info} -o {output}"
+
 
 ###############################  Phylogeny #############################################################
 rule viridic_all_genomes:
     input:
-        "../results/assembly/viral/all_viral_contigs.fasta"
+        "../results/assembly/viral/all_HQ_viral_contigs.fasta"
     output:
         directory("../results/pangenomics/viruses/viridic")
     threads: 20
@@ -133,7 +135,7 @@ rule viridic_all_genomes:
 
 rule viral_phylogeny: 
     input:
-        viruses="../results/assembly/viral/all_viral_contigs.fasta"
+        viruses="../results/assembly/viral/all_HQ_viral_contigs.fasta"
     output:
         directory("../results/vMAGs/vMAGs_phylogeny")
     threads: 20

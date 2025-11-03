@@ -14,15 +14,37 @@ def get_files_commas(path, sep=",", remove_hidden=True):
     return(out)
 
 ############################################# InStrain SetUp ##########################################################
-def get_avg_representative_fasta(wildcards):
-    checkpoint_output = checkpoints.split_viral_contigs.get(**wildcards).output.dir
+
+# Annotate phage genomes
+checkpoint run_pharokka:
+    input:
+        assembly = "../results/assembly/viral/all_HQ_viral_contigs.fasta"
+    output:
+        dir=directory("../results/vMAGs/annotations/pharokka/all_viruses")
+    params:
+        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/pharokka_db"
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 100000,
+        runtime = "1h"
+    threads:16
+    conda:
+        "envs/pharokka.yaml"
+    log:
+        "logs/vMAGs/pharokka_allgenomes.log"
+    shell:
+        "pharokka.py -i {input} -o {output} -d {params.db} -t {threads} --meta --split" 
+
+def get_pharokka_gbks(wildcards):
+    checkpoint_output = checkpoints.run_pharokka.get(**wildcards).output.dir
+    gbk_dir = os.path.join(checkpoint_output, "single_gbks")
 
     # Get list of representative genomes (depends on previous checkpoint)
     rep_genomes = get_representative_genomes_average(wildcards)
 
     # Build full paths
-    aveg_rep_paths = [os.path.join(checkpoint_output, f"{g}.fasta") for g in rep_genomes]
-    return aveg_rep_paths
+    gbk_paths = [os.path.join(gbk_dir, f"{g}.gbk") for g in rep_genomes]
+    return gbk_paths
 
 
 rule get_stb_viral:
@@ -44,19 +66,10 @@ rule get_stb_viral:
         "cat {input.refs} >> {output.concat}; "
         "parse_stb.py --reverse -f {input.refs}  -o {output.stb}"
 
-def get_pharokka_gbks(wildcards):
-    checkpoint_output = checkpoints.run_pharokka.get(**wildcards).output.dir
-    gbk_dir = os.path.join(checkpoint_output, "single_gbks")
-
-    # Get list of representative genomes (depends on previous checkpoint)
-    rep_genomes = get_representative_genomes_average(wildcards)
-
-    # Build full paths
-    gbk_paths = [os.path.join(gbk_dir, f"{g}.gbk") for g in rep_genomes]
-    return gbk_paths
 
 rule generate_genelist_viral:
     input:
+        single_genomes="../results/assembly/viral/single_genomes/",
         ref=get_pharokka_gbks
     output:
         "../results/inStrain/all_drep_average_vMAG_representatives_cds.gbk"
@@ -199,7 +212,8 @@ rule aggregate_inStrain:
     input:
         dir=expand("../results/inStrain/profiles/{sample}_profile/", sample=[s for grp in config["samples"].values() for s in grp.keys()]),
         metadata="../data/metadata/sample_metadata.csv",
-        drep="../results/vMAGs/dereplication/dRep_summary_average.tsv"
+        drep="../results/vMAGs/dereplication/dRep_summary_average.tsv",
+        ani="../results/vMAGs/vMAGs_ANI_comparison.txt"
     output:
         directory("../results/inStrain/aggregated_data/")
     conda:
@@ -210,7 +224,7 @@ rule aggregate_inStrain:
     log:
         "logs/instrain/aggregate_profile.log"
     shell:
-        "Rscript scripts/community_analysis/inStrain_aggregate.R -i {input.dir} -d {input.drep} -m {input.metadata} -g {params.gen_func} -o {output}"
+        "Rscript scripts/community_analysis/inStrain_aggregate.R -i {input.dir} -d {input.drep} -m {input.metadata} -g {params.gen_func} -a {input.ani} -o {output}"
 
 
 ############################################# InStrain Compare #################################################################
