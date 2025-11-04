@@ -35,7 +35,7 @@ rule lifestyle:
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 100000,
-        runtime= "1h"
+        runtime= "2h"
     shell:
         "bacphlip -i {input.viruses} --multi_fasta -f; "
         "mkdir -p {output}; "
@@ -123,8 +123,7 @@ rule aggregate_vMAGs_info:
         lifestyle="../results/vMAGs/lifestyle",
         taxonomy="../results/vMAGs/taxonomy",
         checkv="../results/vMAGs/QC/Checkv",
-        phage_host="../results/phage_host_link/spacers_phage_host_links_summary.tsv",
-        drep="../results/vMAGs/dereplication/dRep_summary_average.tsv"
+        phage_host="../results/phage_host_link/spacers_phage_host_links_summary.tsv"
     output:
         "../results/vMAGs/vMAGs_summary.tsv"
     log:
@@ -137,7 +136,7 @@ rule aggregate_vMAGs_info:
     conda:
         "envs/base_R_env.yaml"
     shell:
-        "Rscript scripts/vMAGs_handling/aggregate_vMAGs_info.R -l {input.lifestyle} -t {input.taxonomy} -c {input.checkv} -p {input.phage_host} -d {input.drep} -o {output}"
+        "Rscript scripts/vMAGs_handling/aggregate_vMAGs_info.R -l {input.lifestyle} -t {input.taxonomy} -c {input.checkv} -p {input.phage_host}  -o {output}"
 
 
 # rule to filter good quality vMAGs based on checkV results

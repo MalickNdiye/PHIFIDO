@@ -37,11 +37,13 @@ def concat_tables(tables_list, skip=0, delimiter="\t", head=0, names=False, name
     return(df)
 
 def get_reads(sample):
-    # Loop over all categories and return the R1/R2 pair for the given sample
-    for group in config["samples"].values():
-        if sample in group:
-            return group[sample]
-    raise ValueError(f"Sample {sample} not found in config")
+    # within sample there is two section, Ampliphage and coEx, and whithin each section there is the samples with R1 and R2
+    # returns the R1 and R2 files for a given sample
+    for section in config["samples"]:
+        if sample in config["samples"][section]:
+            return(config["samples"][section][sample])
+    return(None)
+    
 ###############################  Rules #######################################
 rule all:
     input:
@@ -479,7 +481,6 @@ def get_avg_representative_fasta(wildcards):
 
 include: "pangenome_phages.smk"
 
-include: "compare_vOTUs.smk"
-
 include: "instrain.smk"
 
+include: "compare_vOTUs.smk"

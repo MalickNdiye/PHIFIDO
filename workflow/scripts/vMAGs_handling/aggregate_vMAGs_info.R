@@ -11,8 +11,6 @@ option_list <- list(
                 help = "taxonomy folder", metavar = "character"),
     make_option(c("-p", "--PhageHost"), type = "character",
                 help = "phage-host linkage", metavar = "character"),
-    make_option(c("-d", "--drep"), type = "character",
-                help = "dRep summary file", metavar = "character"),
     make_option(c("-o", "--output"), type = "character",
                 help = "Output file for parsed genomic information", metavar = "character")
 )
@@ -34,11 +32,6 @@ taxonomy <- read.table(file.path(args$taxonomy, "final_prediction/phagcn_predict
 phage_host <- read.table(args$PhageHost,
                          header = TRUE, sep = "\t", stringsAsFactors = FALSE) %>%
               rename(contig_id=virus)
-
-drep<- read.table(args$drep,
-                  header = TRUE, sep = "\t", stringsAsFactors = FALSE) %>%
-                  select(genome, vOTU, representative)%>%
-                  rename(contig_id=genome)
 
 # filter tables
 cat("Processing CheckV information...\n")
@@ -85,7 +78,6 @@ taxonomy_filt <- taxonomy %>%
 # Merge tables
 cat("Merging information...\n")
 merged <- checkv_filt %>%
-    left_join(drep, by = "contig_id") %>%
     left_join(lifestyle_filt, by = "contig_id") %>%
     left_join(taxonomy_filt, by = "contig_id") %>%
     left_join(phage_host, by = "contig_id") %>%

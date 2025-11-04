@@ -33,6 +33,24 @@ rule fastani_phages:
         runtime= "30m"
     shell:
         "fastANI --ql {input.viruses} --rl {input.viruses} -t {threads} --fragLen 100 -o {output}; "
+
+
+rule split_pharokka_vOTU:
+    input:
+        annot="../results/vMAGs/annotations/pharokka/all_viruses",
+        drep="../results/vMAGs/dereplication/dRep_summary_average.tsv"
+    output:
+        directory("../scratch_link/annotations_vOTU/{vOTU}")
+    resources:
+        account="pengel_beemicrophage",
+        mem_mb= 5000,
+        runtime = "20m"
+    threads:1
+    log:
+        "logs/vMAGs/split_pharokka_{vOTU}.log"
+    shell:
+        "mkdir -p {output}; "
+        "python scripts/annotations/pharokka_splitter.py -i {input.annot} -d {input.drep} -v {wildcards.vOTU}  -o {output}"
         
 rule mafft_VOTU:
     input:
@@ -83,15 +101,6 @@ rule pgv_VOTU:
            -o {output} --seqtype nucleotide --curve \
            --feature_track_ratio 0.15 --fig_track_height 0.7 --feature_linewidth 0.5 --feature_plotstyle bigarrow \
            --normal_link_color chocolate --inverted_link_color limegreen || mkdir -p {output}"
-
-def get_vOTU_names(wildcards):
-    import pandas
-
-    file=checkpoints.parse_dRep_viruses_average.get(**wildcards).output[0]
-    df=pandas.read_csv(file, sep="\t")
-    vOTU=df["vOTU"].tolist()
-    return expand("../results/alignments_vOTUs/{vOTU}_mafft_aln.fasta", vOTU=vOTU) + \
-           expand("../results/alignments_vOTUs/pgv/{vOTU}_pgv", vOTU=vOTU)
 
 def get_tageted_vOTU_names(wildcards):
     import pandas

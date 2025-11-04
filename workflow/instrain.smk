@@ -14,39 +14,6 @@ def get_files_commas(path, sep=",", remove_hidden=True):
     return(out)
 
 ############################################# InStrain SetUp ##########################################################
-
-# Annotate phage genomes
-checkpoint run_pharokka:
-    input:
-        assembly = "../results/assembly/viral/all_HQ_viral_contigs.fasta"
-    output:
-        dir=directory("../results/vMAGs/annotations/pharokka/all_viruses")
-    params:
-        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/pharokka_db"
-    resources:
-        account="pengel_beemicrophage",
-        mem_mb= 100000,
-        runtime = "1h"
-    threads:16
-    conda:
-        "envs/pharokka.yaml"
-    log:
-        "logs/vMAGs/pharokka_allgenomes.log"
-    shell:
-        "pharokka.py -i {input} -o {output} -d {params.db} -t {threads} --meta --split" 
-
-def get_pharokka_gbks(wildcards):
-    checkpoint_output = checkpoints.run_pharokka.get(**wildcards).output.dir
-    gbk_dir = os.path.join(checkpoint_output, "single_gbks")
-
-    # Get list of representative genomes (depends on previous checkpoint)
-    rep_genomes = get_representative_genomes_average(wildcards)
-
-    # Build full paths
-    gbk_paths = [os.path.join(gbk_dir, f"{g}.gbk") for g in rep_genomes]
-    return gbk_paths
-
-
 rule get_stb_viral:
     input:
         refs=get_avg_representative_fasta
@@ -65,6 +32,18 @@ rule get_stb_viral:
     shell:
         "cat {input.refs} >> {output.concat}; "
         "parse_stb.py --reverse -f {input.refs}  -o {output.stb}"
+
+
+def get_pharokka_gbks(wildcards):
+    checkpoint_output = checkpoints.run_pharokka.get(**wildcards).output.dir
+    gbk_dir = os.path.join(checkpoint_output, "single_gbks")
+
+    # Get list of representative genomes (depends on previous checkpoint)
+    rep_genomes = get_representative_genomes_average(wildcards)
+
+    # Build full paths
+    gbk_paths = [os.path.join(gbk_dir, f"{g}.gbk") for g in rep_genomes]
+    return gbk_paths
 
 
 rule generate_genelist_viral:

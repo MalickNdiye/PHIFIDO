@@ -1,46 +1,24 @@
 
-
-
-rule defense_finder_viruses: 
+# Annotate phage genomes
+checkpoint run_pharokka:
     input:
-        annots="../results/vMAGs/annotations/pharokka/all_viruses"
+        assembly = "../results/assembly/viral/all_HQ_viral_contigs.fasta"
     output:
-        dir=directory("../results/pangenomics/viruses/defense_finder"),
-        tmp=temp("../results/pangenomics/viruses/all_viruses.faa")
-    threads: 8
-    resources:
-        account = "pengel_beemicrophage",
-        mem_mb = 10000,
-        runtime= "1h"
-    log: 
-        "logs/defense_finder/viruses_defense_finder.log"
-    conda:
-        "envs/defense_finder.yaml"
+        dir=directory("../results/vMAGs/annotations/pharokka/all_viruses")
     params:
-        models=config["DF_MODELS"]
-    shell:
-        "cat  {input.annots}/single_faas/*.faa > {output.tmp}; "
-        "defense-finder run -o {output.dir} -w {threads} --models-dir {params.models} {output.tmp}"
-
-rule split_pharokka_vOTU:
-    input:
-        annot="../results/vMAGs/annotations/pharokka/all_viruses",
-        drep="../results/vMAGs/dereplication/dRep_summary_average.tsv"
-    output:
-        directory("../scratch_link/annotations_vOTU/{vOTU}")
+        db="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/databases/pharokka_db"
     resources:
         account="pengel_beemicrophage",
-        mem_mb= 5000,
-        runtime = "20m"
-    threads:1
+        mem_mb= 100000,
+        runtime = "1h"
+    threads:16
+    conda:
+        "envs/pharokka.yaml"
     log:
-        "logs/vMAGs/split_pharokka_{vOTU}.log"
+        "logs/vMAGs/pharokka_allgenomes.log"
     shell:
-        "mkdir -p {output}; "
-        "python scripts/annotations/pharokka_splitter.py -i {input.annot} -d {input.drep} -v {wildcards.vOTU}  -o {output}"
+        "pharokka.py -i {input} -o {output} -d {params.db} -t {threads} --meta --split" 
 
-
-################################ Vcontact2 #############################################################
 rule gene_2_genome:
     input:
         all_vprot = "../results/vMAGs/annotations/pharokka/all_viruses",
@@ -62,6 +40,29 @@ rule gene_2_genome:
         "cat {input.all_vprot}/single_faas/*.faa > {output.all_prot}; "
         "cat {output.all_prot} {input.phoster_ref} > {output.all_prot_and_ref}; "
         "python scripts/pangenomics/gene2genome.py -p {output.all_prot_and_ref} -o {output.gene_2_genome} -s 'Prodigal-FAA'"
+
+
+rule defense_finder_viruses: 
+    input:
+        annots="../results/pangenomics/viruses/Vcontact2/all_viral_proteins_PlusPhoster.faa"
+    output:
+        dir=directory("../results/pangenomics/viruses/defense_finder")
+    threads: 8
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 10000,
+        runtime= "1h"
+    log: 
+        "logs/defense_finder/viruses_defense_finder.log"
+    conda:
+        "envs/defense_finder.yaml"
+    params:
+        models=config["DF_MODELS"]
+    shell:
+        "defense-finder run -o {output.dir} -w {threads} --models-dir {params.models} {input.annots}"
+
+
+################################ Vcontact2 #############################################################
 
 # Run vContact2
 rule run_vcontact:

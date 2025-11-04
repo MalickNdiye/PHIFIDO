@@ -66,7 +66,9 @@ input_files <- lapply(input_dirs, function(dir) {
 # -----------------------------
 prepare_cov_matrix <- function(data) {
   data %>%
-    select(sample, genome, coverage) %>%
+    select(sample, genome, rel_ab) %>%
+    rename(coverage = rel_ab) %>%
+    ungroup() %>%
     pivot_wider(names_from = genome, values_from = coverage, values_fill = 0) %>%
     column_to_rownames("sample")
 }
@@ -174,13 +176,24 @@ plot_metric_histograms <- function(pairs, cor_threshold, dist_threshold_factor,
       labs(title = title, x = xlabel, y = "Count")
   }
 
-  # make scatter plot with x=dist, y=cooccur_ratio, color=cooccur_ratio
-  p_scatter <- ggplot(pairs, aes(x = dist, y = cooccur_ratio, color = cor)) +
-    geom_point(alpha = 0.7) +
-    scale_color_viridis_c() +
+  # make scatter plot with x=dist, y=cor, color=cooccur_ratio
+  # color above threshold in red
+  p_scatter <- ggplot(pairs, aes(x = dist, y = cor, color = cooccur_ratio, size = pmin(union, 5))) +
+    geom_point(alpha=0.7) +
+    scale_color_gradient(
+        low = "blue", 
+        high = "green",
+        limits = c(0, cooccur_threshold), # Gradient ends at the threshold
+        oob = scales::censor,            # Censor values above it
+        na.value = "red"                 # Color the censored values red
+    ) +
+    geom_hline(yintercept = cor_threshold, color = "red", lwd = 1) +
     geom_vline(xintercept = dist_thresh, color = "red", lwd = 1) +
-    geom_hline(yintercept = cooccur_threshold, color = "red", lwd = 1) +
-    labs(title = "Pairwise genome comparisons", x = "Bray–Curtis distance", y = "Co-occurrence ratio" , color = "Spearman correlation")  
+    labs(title = "Pairwise correlation vs distance",
+         x = "Bray–Curtis distance",
+         y = "Spearman correlation",
+         color = "Co-occurrence ratio") +
+    theme_minimal()
 
   ggsave(file.path(plotdir, "correlation_histogram.png"),
          make_plot(pairs$cor, cor_threshold, "Pairwise correlations", "Spearman correlation"))
@@ -197,9 +210,9 @@ plot_metric_histograms <- function(pairs, cor_threshold, dist_threshold_factor,
 
 find_vOTU_merges_by_cooccurrence <- function(filtered_data,
                                              cor_threshold = 0.95,
-                                             dist_threshold_factor = 0.1,
+                                             dist_threshold_factor = 0.2,
                                              min_shared = 5,
-                                             cooccur_threshold = 0.8,
+                                             cooccur_threshold = 0.9,
                                              outdir) {
   message("Detecting co-occurring genomes to merge vOTUs...")
 
@@ -287,10 +300,10 @@ plot_vOTU_coverage <- function(filtered_data, merge_map, outdir) {
         legend.title = element_blank(),
         plot.title = element_text(hjust = 0.5)
       ) +
-      ggtitle(paste0("Coverage across samples — merged vOTU: ", new_v,
+      ggtitle(paste0("Relative Abundance across samples — merged vOTU: ", new_v,
                      "\nRepresentative genome: ", representative)) +
       xlab("Sample") +
-      ylab("Coverage")
+      ylab("Relative Abundance")
 
     print(p)
   }
