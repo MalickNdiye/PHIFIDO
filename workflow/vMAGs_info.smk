@@ -142,7 +142,7 @@ rule aggregate_vMAGs_info:
 # rule to filter good quality vMAGs based on checkV results
 rule filter_good_vMAGs:
     input:
-        vMAGs_info="../results/vMAGs/vMAGs_summary.tsv",
+        vMAGs_info="../results/vMAGs/QC/Checkv",
         assembly="../results/assembly/viral/all_viral_contigs.fasta"
     output:
         "../results/assembly/viral/all_HQ_viral_contigs.fasta"
@@ -157,8 +157,8 @@ rule filter_good_vMAGs:
         import pandas as pd
         from Bio import SeqIO
 
-        vMAGs_info = pd.read_csv(input.vMAGs_info, sep="\t")
-        good_quality_contigs = vMAGs_info[vMAGs_info['checkv_quality'].isin(['Medium-quality', 'High-quality', 'Complete'])]['genome'].tolist()
+        vMAGs_info = pd.read_csv(file.path(input.vMAGs_info, "quality_summary.tsv"), sep="\t")
+        good_quality_contigs = vMAGs_info[vMAGs_info['checkv_quality'].isin(['Medium-quality', 'High-quality', 'Complete'])]['contig_id'].tolist()
 
         with open(output[0], "w") as out_f:
             for record in SeqIO.parse(input.assembly, "fasta"):

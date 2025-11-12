@@ -80,7 +80,7 @@ compute_pairwise_stats <- function(cov_mat) {
   genomes <- colnames(cov_mat)
   if (length(genomes) < 2) return(NULL)
 
-  cor_mat  <- cor(cov_mat, method = "spearman", use = "pairwise.complete.obs")
+  cor_mat  <- cor(cov_mat, method = "pearson", use = "pairwise.complete.obs")
   dist_mat <- as.matrix(vegdist(t(cov_mat), method = "bray"))
 
   shared_nonzero <- function(a, b) sum(a > 0 & b > 0)
@@ -179,16 +179,15 @@ plot_metric_histograms <- function(pairs, cor_threshold, dist_threshold_factor,
   # make scatter plot with x=dist, y=cor, color=cooccur_ratio
   # color above threshold in red
   p_scatter <- ggplot(pairs, aes(x = dist, y = cor, color = cooccur_ratio, size = pmin(union, 5))) +
-    geom_point(alpha=0.7) +
+    geom_point(alpha=0.2, pch=20) +
     scale_color_gradient(
         low = "blue", 
-        high = "green",
-        limits = c(0, cooccur_threshold), # Gradient ends at the threshold
-        oob = scales::censor,            # Censor values above it
-        na.value = "red"                 # Color the censored values red
+        high = "green",            # Color the censored values red
     ) +
-    geom_hline(yintercept = cor_threshold, color = "red", lwd = 1) +
-    geom_vline(xintercept = dist_thresh, color = "red", lwd = 1) +
+    geom_point(data = subset(pairs, cor > cor_threshold & dist < dist_thresh & cooccur_ratio >= cooccur_threshold & shared >= 5),
+               aes(x = dist, y = cor), color = "red", size = 6, alpha=0.5, pch=20) +
+    geom_hline(yintercept = cor_threshold, color = "red", lwd = 1, linetype="dashed") +
+    geom_vline(xintercept = dist_thresh, color = "red", lwd = 1, linetype="dashed") +
     labs(title = "Pairwise correlation vs distance",
          x = "Bray–Curtis distance",
          y = "Spearman correlation",
@@ -209,8 +208,8 @@ plot_metric_histograms <- function(pairs, cor_threshold, dist_threshold_factor,
 # ============================================================
 
 find_vOTU_merges_by_cooccurrence <- function(filtered_data,
-                                             cor_threshold = 0.95,
-                                             dist_threshold_factor = 0.2,
+                                             cor_threshold = 0.9,
+                                             dist_threshold_factor = 0.25,
                                              min_shared = 5,
                                              cooccur_threshold = 0.9,
                                              outdir) {
@@ -382,10 +381,10 @@ filtered_data <- formatted_data %>%
   mutate(rel_ab = coverage / sum(coverage, na.rm = TRUE)) %>%
   ungroup()
 
-merge_map <- find_vOTU_merges_by_cooccurrence(filtered_data, outdir = args$output)
+merge_map <- find_vOTU_merges_by_cooccurrence(filtered_data, outdir = args$output) 
 
 merge_map$merged_to <- rep_genomes_vector[merge_map$new_vOTU]
-merge_map_named_vector <- setNames(merge_map$new_vOTU, merge_map$old_vOTU)
+
 
 
 # add ANI info to merge_map
@@ -404,16 +403,18 @@ merge_map_ani <- merge_map %>%
   left_join(ani.data, by = c("genome" = "genome1", "merged_to" = "genome2")) %>%
   rename(ANI_fw = ANI, AF_fw = AF) %>%
   left_join(ani.data, by = c("genome" = "genome2", "merged_to" = "genome1")) %>%
-  rename(ANI_rev = ANI, AF_rev = AF)  
+  rename(ANI_rev = ANI, AF_rev = AF) %>%
+  drop_na() 
+merge_map_named_vector <- setNames(merge_map_ani$new_vOTU, merge_map_ani$old_vOTU)
 
 plot_vOTU_coverage(filtered_data, merge_map, outdir = args$output)
 
 # ---- Update vOTU Assignments ----
 filtered_data_updated <- filtered_data %>%
-  mutate(vOTU = ifelse(vOTU %in% merge_map$old_vOTU, merge_map_named_vector[vOTU], vOTU))
+  mutate(vOTU = ifelse(vOTU %in% merge_map_ani$old_vOTU, merge_map_named_vector[vOTU], vOTU))
 
 drep_updated <- drep %>%
-  mutate(vOTU = ifelse(vOTU %in% merge_map$old_vOTU, merge_map_named_vector[vOTU], vOTU))
+  mutate(vOTU = ifelse(vOTU %in% merge_map_ani$old_vOTU, merge_map_named_vector[vOTU], vOTU))
 
 # ---- Aggregate and Write Outputs ----
 filtered_data_vOTU <- filtered_data_updated %>%

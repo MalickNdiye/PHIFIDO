@@ -24,7 +24,8 @@ opt_parser = OptionParser(option_list=option_list);
 opt = parse_args(opt_parser);
 
 # read the dRep summary_average_updated.tsv file
-vircom <- fread(opt$input_comm)
+vircom <- fread(opt$input_comm) 
+
 present_genomes<- unique(vircom$genome)
 present_vOTUs<- unique(vircom$vOTU)
 
