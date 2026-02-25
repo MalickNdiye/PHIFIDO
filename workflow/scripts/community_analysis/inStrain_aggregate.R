@@ -421,6 +421,8 @@ filtered_data_vOTU <- filtered_data_updated %>%
   group_by(Exp, sample, Media, Cocktail, Passage, Batch, Replicate, vOTU) %>%
   reframe(
     rel_ab = sum(rel_ab, na.rm = TRUE),
+    filtered_read_pair_count= sum(filtered_read_pair_count, na.rm = TRUE),
+    coverage = sum(coverage, na.rm = TRUE),
     nucl_diversity = mean(nucl_diversity, na.rm = TRUE),
     mean_breadth = mean(breadth, na.rm = TRUE),
     max_length = max(length, na.rm = TRUE),

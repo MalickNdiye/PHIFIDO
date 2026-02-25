@@ -1,0 +1,12 @@
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL0170.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL1077.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL1060.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL1069.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL0819.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL0820.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL0822.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL0824.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL0827.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL0198.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL0199.fasta
+/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/data/references/Bifido_genomes/ESL0200.fasta
