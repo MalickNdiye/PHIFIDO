@@ -205,7 +205,23 @@ rule aggregate_inStrain:
     shell:
         "Rscript scripts/community_analysis/inStrain_aggregate.R -i {input.dir} -d {input.drep} -m {input.metadata} -g {params.gen_func} -a {input.ani} -o {output}"
 
-
+rule aggregate_inStrain_sing:
+    input:
+        dir=expand("../results/inStrain/profiles/{sample}_profile/", sample=[s for grp in config["samples"].values() for s in grp.keys()]),
+        metadata="../data/metadata/sample_metadata.csv",
+        drep="../results/vMAGs/dereplication/dRep_summary_single.tsv",
+        ani="../results/vMAGs/vMAGs_ANI_comparison.txt"
+    output:
+        directory("../results/inStrain/aggregated_data_sing/")
+    conda:
+        "envs/base_R_env.yaml"
+    params:
+        gen_func="scripts/General_functions.R"
+    threads: 1
+    log:
+        "logs/instrain/aggregate_profile.log"
+    shell:
+        "Rscript scripts/community_analysis/inStrain_aggregate.R -i {input.dir} -d {input.drep} -m {input.metadata} -g {params.gen_func} -a {input.ani} -o {output}"
 ############################################# InStrain Compare #################################################################
 rule instrain_compare:
     input:

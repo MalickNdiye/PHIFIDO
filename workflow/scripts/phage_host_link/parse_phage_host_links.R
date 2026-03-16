@@ -47,7 +47,7 @@ blastout <- blastout %>%
 # filter blastout for true mismatches <=2
 cat("Total number of phage-host links found before filtering:", nrow(blastout), "\n")
 blastout_filtered <- blastout %>%
-    filter(true_mm == 0) 
+    filter(true_mm <= 2) 
 
 # summarize results in table
 cat("Number of unique phage-host links found:", length(unique(blastout_filtered$Query)), "\n")

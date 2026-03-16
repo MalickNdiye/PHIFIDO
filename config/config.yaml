@@ -1,3 +1,5 @@
+sample_metadata: "../data/metadata/sample_metadata.csv"
+
 samples:
   Ampliphage:
     Blank-1 :
