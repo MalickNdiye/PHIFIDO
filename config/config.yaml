@@ -901,3 +901,28 @@ CONDA_ENV_VCONTACT2: /work/FAC/FBM/DMF/pengel/beemicrophage/mndiaye1/PHOSTER/wor
 # Metadata
 PHOSTER_BACTERIA_METADATA: ../data/metadata/PHOSTER_all_bacterial_genomes_info.tsv
 SPACERS_METADATA: ../data/references/short_RefSeqs/spacers_metadata_filtered.tsv
+
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# 16s Configs
+# ------------------------------------------------------------------------------------------------------------------
+
+Raw_16s_reads:
+  AmpliPhage: ../PacBio_16s/data/Ampliphage/raw_reads
+  CoEx: ../PacBio_16s/data/CoEx/raw_reads
+  Bicom6: ../PacBio_16s/data/Bicom6/raw_reads
+
+Bifido_16s_seqs: ../PacBio_16s/data/MyBifido_toSpecies.fasta
+
+primers:
+  F: AGRGTTYGATYMTGGCTCAG
+  R: RGYTACCTTGTTACGACTT
+
+Error_function: binnedQualErrfun
+
+Tax_db_toGenus: ../PacBio_16s/data/silva_nr99_v138.2_MyBifido_toGenus.fasta
+Tax_db_toSpecies: ../PacBio_16s/data/silva_v138.2_MyBifido_assignSpecies_filt.fasta
+
+qPCR_data: "../PacBio_16s/data/All_qPCR_raw_data.csv"
+std_curves: "../PacBio_16s/data/std_curve_cpnumber_203_204.csv"

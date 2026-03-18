@@ -609,3 +609,4 @@ def get_avg_representative_fasta(wildcards):
 include: "pangenome_phages.smk"
 include: "instrain.smk"
 include: "compare_vOTUs.smk"
+include: "16s_workflow.smk"
