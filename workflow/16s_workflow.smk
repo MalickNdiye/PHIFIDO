@@ -121,3 +121,32 @@ rule format_16s_qpcr:
         {input.qPCR_data} \
         {wildcards.Experiment} \
         {output}"
+    
+rule format_community_data:
+    input:
+        ASV_tables="../PacBio_16s/results/merged_ASV_tables",
+        metadata="../data/metadata/sample_metadata.csv",
+        qPCR_data="../PacBio_16s/results/qPCR_formatted_{Experiment}",
+    output:
+        directory("../PacBio_16s/results/community_data_formatted/{Experiment}")
+    conda:
+        "envs/r_momsane.yaml"
+    log:
+        "../PacBio_16s/logs/format_community_data_{Experiment}.log"
+    threads: 1
+    resources:
+        account = "pengel_beemicrophage",
+        mem_mb = 20000,
+        runtime= "20m"
+    params:
+        ASV_table="../PacBio_16s/results/merged_ASV_tables/ASV_table_merged.rds",
+        taxonomy="../PacBio_16s/results/merged_ASV_tables/ASV_Taxonomy_sp.RDS",
+        metadata="../data/metadata/sample_metadata.csv",
+        qPCR_data="../PacBio_16s/results/qPCR_formatted_{Experiment}/{Experiment}_Absolute_quant_final.csv"
+    shell:
+        "Rscript --vanilla ../PacBio_16s/scripts/Format_16s_community_data_cls.R -a {params.ASV_table} \
+         -t {params.taxonomy} \
+         -m {params.metadata} \
+         -q {params.qPCR_data} \
+         -e {wildcards.Experiment} \
+         -o {output}"

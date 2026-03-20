@@ -226,79 +226,79 @@ cat(paste0("Proportion of reads removed: ", round(1-sum(ASV_samples_table_noChim
 cat("Chimera removal done\n")
 
 
-### Rarefaction curves ###
+# ### Rarefaction curves ###
 
-cat("Generating rarefaction curves\n")
+# cat("Generating rarefaction curves\n")
 
-# remove zero-abundance samples
-totab <- apply(ASV_samples_table_noChim, 1, sum)
-zeroes <- names(which(totab == 0))
+# # remove zero-abundance samples
+# totab <- apply(ASV_samples_table_noChim, 1, sum)
+# zeroes <- names(which(totab == 0))
 
-inext_input <- t(ASV_samples_table_noChim[setdiff(names(totab), zeroes),])
+# inext_input <- t(ASV_samples_table_noChim[setdiff(names(totab), zeroes),])
 
-# using iNEXT so I can also estimate the sampling coverage
-dt <- iNEXT(
-  inext_input, # samples must be as columns
-  q = c(0,1),
-  datatype = "abundance",
-  endpoint = maxraref,
-  knots = 50,
-  se = TRUE,
-  conf = 0.95,
-  nboot = 20
-)
+# # using iNEXT so I can also estimate the sampling coverage
+# dt <- iNEXT(
+#   inext_input, # samples must be as columns
+#   q = c(0,1),
+#   datatype = "abundance",
+#   endpoint = maxraref,
+#   knots = 50,
+#   se = TRUE,
+#   conf = 0.95,
+#   nboot = 20
+# )
 
-inextqd <- dt$iNextEst$size_based %>%
-  dplyr::rename(SampleID = Assemblage)
+# inextqd <- dt$iNextEst$size_based %>%
+#   dplyr::rename(SampleID = Assemblage)
 
-qd.plot <- ggplot(
-  inextqd[inextqd$Method != "Extrapolation", ],
-  aes(
-    x = m,
-    y = qD,
-    group = SampleID
-  )
-) +
-  geom_vline(aes(xintercept = min(inextqd$m[inextqd$Method == "Observed"]), color = "low"), linetype = "dashed") + # sample with lowest number of reads
-  geom_vline(aes(xintercept = max(inextqd$m[inextqd$Method == "Observed"]), color = "high"), linetype = "dashed") + # sample with highest number of reads
-  scale_color_manual(name = "", values = c(low = "#669bbc", high = "#e76f51"), labels = c(low = "Lowest depth", high = "Highest depth")) +
-  geom_line(alpha = 0.4) +
-  geom_ribbon(
-    aes(
-      ymin = qD.LCL,
-      ymax = qD.UCL
-    ), alpha = 0.1
-  ) +
-  geom_label(
-    data = inextqd[inextqd$Method == "Observed", ],
-    aes(
-      x = m,
-      y = qD,
-      label = SampleID
-    ), size = 4, nudge_x = 70
-  ) +
-  theme_bw() +
-  labs(
-    x = "# of reads",
-    y = "# of ASVs"
-  ) +
-  theme(
-    legend.position = "inside",
-    legend.position.inside = c(0.1,0.9),
-    legend.background = element_rect(fill=alpha('white', 0.4))
-  ) +
-  facet_wrap( ~ Order.q, scales = "free_y")
+# qd.plot <- ggplot(
+#   inextqd[inextqd$Method != "Extrapolation", ],
+#   aes(
+#     x = m,
+#     y = qD,
+#     group = SampleID
+#   )
+# ) +
+#   geom_vline(aes(xintercept = min(inextqd$m[inextqd$Method == "Observed"]), color = "low"), linetype = "dashed") + # sample with lowest number of reads
+#   geom_vline(aes(xintercept = max(inextqd$m[inextqd$Method == "Observed"]), color = "high"), linetype = "dashed") + # sample with highest number of reads
+#   scale_color_manual(name = "", values = c(low = "#669bbc", high = "#e76f51"), labels = c(low = "Lowest depth", high = "Highest depth")) +
+#   geom_line(alpha = 0.4) +
+#   geom_ribbon(
+#     aes(
+#       ymin = qD.LCL,
+#       ymax = qD.UCL
+#     ), alpha = 0.1
+#   ) +
+#   geom_label(
+#     data = inextqd[inextqd$Method == "Observed", ],
+#     aes(
+#       x = m,
+#       y = qD,
+#       label = SampleID
+#     ), size = 4, nudge_x = 70
+#   ) +
+#   theme_bw() +
+#   labs(
+#     x = "# of reads",
+#     y = "# of ASVs"
+#   ) +
+#   theme(
+#     legend.position = "inside",
+#     legend.position.inside = c(0.1,0.9),
+#     legend.background = element_rect(fill=alpha('white', 0.4))
+#   ) +
+#   facet_wrap( ~ Order.q, scales = "free_y")
 
-ggsave(file.path(out.plots, "04_rarefaction_curves_ASVs.pdf"), qd.plot, device="pdf", width = 12, height = 8)
+# ggsave(file.path(out.plots, "04_rarefaction_curves_ASVs.pdf"), qd.plot, device="pdf", width = 12, height = 8)
 
-write.table(
-  inextqd,
-  file = file.path(out.denois, "inext_data.tsv"),
-  sep = "\t",
-  quote = F,
-  row.names = F,
-  col.names = T
-)
+# write.table(
+#   inextqd,
+#   file = file.path(out.denois, "inext_data.tsv"),
+#   sep = "\t",
+#   quote = F,
+#   row.names = F,
+#   col.names = T
+# )
 
 ### Compute general statistics ###
 

@@ -65,7 +65,8 @@ cat("Unique ASVs after merging:", n_asv_merged, "\n")
 
 
 # 3. Remove chimeras again globally
-seqtab_nochim <-  removeBimeraDenovo(seqtab_merged, method="pool", multithread=TRUE)
+seqtab_nochim <- seqtab_merged
+# removeBimeraDenovo(seqtab_merged, method="pool", multithread=TRUE)
 
 n_asv_final <- ncol(seqtab_nochim)
 cat("ASVs after second chimera removal:", n_asv_final, "\n")

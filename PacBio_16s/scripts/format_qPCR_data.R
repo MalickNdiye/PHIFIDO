@@ -27,6 +27,13 @@ if(!dir.exists(output_dir)){
   dir.create(output_dir)
 }
 
+print("input parameters:")
+print(paste("Metadata path:", metadata_p))
+print(paste("Standard curve path:", std_curve_p))
+print(paste("qPCR data path:", pcr_data))
+print(paste("Experiment name:", Experiment))
+print(paste("Output directory:", output_dir))
+
 ################################################################################
 # Open Metadata
 ################################################################################
@@ -57,10 +64,17 @@ print(paste("qPCR Efficiency:", round(efficiency_percent, 2), "%"))
 
 ################################################################################
 # Clean & Format qPCR data
-################################################################################
 print(paste("=== Loading and formatting qPCR data from", pcr_data, "for experiment", Experiment, "==="))
 Absolute_quant_raw<- fread(pcr_data) %>%
   filter(Exp==Experiment)
+
+if(nrow(Absolute_quant_raw) == 0){
+  print(paste("No qPCR data found in", pcr_data, "for experiment", Experiment, ". Saving empty data frame."))
+  empty_df <- data.frame(SampleID=character(), Passage=character(), Cocktail=character(), Media=character(), Replicate=integer(), copy_number=numeric(), suspicious=logical())
+  write.csv(empty_df, file.path(output_dir, paste0(Experiment, "_Absolute_quant_final.csv")), row.names = F, quote = F)
+  quit(save = "no")
+}
+
 
 print(paste("Total qPCR measurements for", Experiment, "before cleaning:", nrow(Absolute_quant_raw)))
 Absolute_quant_raw2<- Absolute_quant_raw %>%
