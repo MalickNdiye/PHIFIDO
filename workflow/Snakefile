@@ -7,6 +7,10 @@ This pipeline performs the following steps:
 3. Viral Contig Processing (Aggregation, Splitting)
 4. Dereplication (dRep) & Representative Selection
 5. Downstream Analysis (Pangenomics, inStrain)
+
+This is the main entry point: it defines shared helper functions and the
+final target rule ("rule all"), then pulls in the other rule files (each
+covering one stage of the pipeline) via "include" statements below.
 """
 
 configfile: "../config/config.yaml"
@@ -19,6 +23,8 @@ import os
 import pandas as pd
 import numpy as np
 
+# Bacterial (Bifidobacterium) genome QC, taxonomy, annotation, pangenomics
+# and phylogeny (Section: Host genome characterization).
 include: "Host_analysis.smk"
 
 def concat_tables(tables_list, skip=0, delimiter="\t", head=0, names=False, names_list=[], add={}):
@@ -79,6 +85,9 @@ def get_files_commas(path, sep=",", remove_hidden=True):
 
 rule all:
     input:
+    # Final targets: running these five outputs pulls the entire DAG
+    # (viral identification, lifestyle/taxonomy, inStrain profiling,
+    # read-QC summary, and mapping stats) up to date.
         "../results/vMAGs/lifestyle",
         "../results/vMAGs/taxonomy",
         "../results/inStrain/aggregated_data/",
@@ -87,53 +96,8 @@ rule all:
 
 # ==============================================================================
 # SECTION 1: Data Validation & Preprocessing
-# ==============================================================================
 # This section handles raw read QC, trimming, and host filtering.
-# 
-
-rule run_Krakern2:
-    """
-    Taxonomic classification of raw reads using Kraken2 to assess sample composition.
-    """
-    input:
-        R1 = lambda wildcards: config["samples"][wildcards.sample][0],
-        R2 = lambda wildcards: config["samples"][wildcards.sample][1]
-    output:
-        tab = temp("../results/data_validation/kraken2_output/{sample}_kraken2_report.kraken"),
-        rep = temp("../results/data_validation/kraken2_output/Reports/{sample}_kraken2_report")
-    conda:
-        "envs/Kraken2.yaml"
-    threads: 8
-    log:
-        "logs/data_validation/kraken2/run/{sample}_kraken2.log"
-    resources:
-        account = "pengel_beemicrophage",
-        mem_mb = 100000,
-        runtime = "40m"
-    params:
-        db = "/users/mndiaye1/beemicrophage_dir/PHOSTER/workflow/resources/default_DBs/230228_costum_kraken2db_new"
-    shell:
-        "kraken2 --use-names --threads {threads} --db {params.db} --fastq-input "
-        "--report {output.rep} --gzip-compressed --paired {input.R1} {input.R2} > {output.tab}"
-
-rule parse_kraken_report:
-    """
-    Summarize Kraken2 reports across all samples.
-    """
-    input:
-        expand("../results/data_validation/kraken2_output/Reports/{sample}_kraken2_report", sample=config["samples"])
-    output:
-        "../results/data_validation/kraken2_output/Summary/all_samples_report.txt"
-    threads: 2
-    params:
-        "../results/data_validation/kraken2_output/"
-    log:
-        "logs/data_validation/kraken2/parsing/report_parser_kraken2.log"
-    resources:
-        account = "pengel_beemicrophage",
-        runtime = "15m"
-    script:
-        "scripts/data_validation/parse_kraken_report.py"
+# ==============================================================================
 
 rule rawreads_trimming:
     """
@@ -270,7 +234,7 @@ rule count_reads_summary:
 # SECTION 2: Viral Assembly & Identification
 # ==============================================================================
 # This section assembles reads and identifies viral contigs using multiple tools.
-# 
+
 
 rule assemble_metagenomes:
     """
@@ -342,6 +306,10 @@ rule run_genomad:
 # --- Parsing & Aggregation ---
 
 rule parse_vibrant:
+    """
+    Convert a single sample's raw VIBRANT output directory into a tidy
+    per-sample summary table of predicted viral contigs.
+    """
     input:
         "../results/viral_identification/vibrant/{sample}"
     output:
@@ -359,6 +327,10 @@ rule parse_vibrant:
         "Rscript scripts/viral_identification/parse_vibrant_output.R -d {input} -o {output}"
 
 rule parse_genomad:
+    """
+    Convert a single Bifidobacterium genome's raw GeNomad output into a
+    tidy summary table and extract the predicted prophage sequences.
+    """
     input:
         "../results/viral_identification/genomad/genomad_{bifi}"
     output:
@@ -377,10 +349,14 @@ rule parse_genomad:
         "Rscript scripts/viral_identification/parse_genomad_output.R -d {input} -o {output.tab} -f {output.fasta}"
 
 rule aggregate_vibrant_summaries:
+    """
+    Combine per-sample VIBRANT summaries and per-genome GeNomad summaries
+    into a single viral-identification summary table.
+    """
     input:
-        all_tabs = expand("../results/viral_identification/vibrant/summary/{sample}_vibrant_summary.tsv", 
+        all_tabs = expand("../results/viral_identification/vibrant/summary/{sample}_vibrant_summary.tsv",
                           sample=[s for grp in config["samples"].values() for s in grp.keys()]),
-        all_genomad = expand("../results/viral_identification/genomad/summary/{bifi}_genomad_summary.tsv", 
+        all_genomad = expand("../results/viral_identification/genomad/summary/{bifi}_genomad_summary.tsv",
                              bifi=config["BiCom"])
     output:
         summ_tab = "../results/viral_identification/vibrant/summary/vibrant_identification_summary.tsv"
@@ -447,6 +423,8 @@ rule aggragate_viral_contigs:
         "cat {input.prophages} >> {output}; "
         "cat {input.isolates} >> {output}"
 
+# vMAG quality control, lifestyle/taxonomy prediction, and phage-host
+# linking (Section: Viral characterization).
 include: "vMAGs_info.smk"
 
 checkpoint split_viral_contigs:
@@ -471,11 +449,6 @@ checkpoint split_viral_contigs:
         python scripts/split_assembly.py -f {input.HQ} -d {output.dir}
         ls {output.dir}/*.fasta > {output.list_genomes}
         """
-
-def read_file_list():
-    with open("file_list.txt") as f:
-        return [line.strip() for line in f]
-
 
 # ==============================================================================
 # SECTION 4: Dereplication (dRep)
@@ -553,6 +526,9 @@ rule dereplicate_viral_contigs_single:
         "--clusterAlg single --ignoreGenomeQuality -p {threads}; "
 
 rule parse_dRep_viruses_single:
+    """
+    Parse dRep results to identify representative genomes (single-linkage clustering).
+    """
     input:
         drep = "../results/vMAGs/dereplication/dRep_single",
         metadata = "../results/vMAGs/QC/Checkv"
@@ -606,7 +582,9 @@ def get_avg_representative_fasta(wildcards):
 # SECTION 5: Downstream Analysis Includes
 # ==============================================================================
 
+# Phage annotation (Pharokka) and genome clustering/pangenome analysis (VIRIDIC).
 include: "pangenome_phages.smk"
+# Read mapping + inStrain population-genomics profiling of representative vMAGs.
 include: "instrain.smk"
-include: "compare_vOTUs.smk"
+# PacBio full-length 16S rRNA amplicon workflow (community composition tracking).
 include: "16s_workflow.smk"

@@ -1,6 +1,21 @@
+"""
+Snakemake Pipeline for Phage Genome Annotation & Pangenome/Clustering Analysis
+===============================================================================
+This module operates on the dereplicated, high-quality (HQ) viral contigs
+produced upstream (see vMAGs_info.smk) and:
+1. Annotates phage genes/functions using Pharokka.
+2. Computes pairwise intergenomic similarities between all HQ phage genomes
+   using VIRIDIC, used to define viral clusters (e.g. vOTUs) for the
+   pangenome/taxonomy analyses reported in the manuscript.
+"""
 
 # Annotate phage genomes
 checkpoint run_pharokka:
+    """
+    Checkpoint: Annotate all HQ viral genomes (genes, functions, taxonomy)
+    using Pharokka, splitting output per-genome ("--split") for later use
+    as gene lists in inStrain (see instrain.smk).
+    """
     input:
         assembly = "../results/assembly/viral/all_HQ_viral_contigs.fasta"
     output:
@@ -17,12 +32,17 @@ checkpoint run_pharokka:
     log:
         "logs/vMAGs/pharokka_allgenomes.log"
     shell:
-        "pharokka.py -i {input} -o {output} -d {params.db} -t {threads} --meta --split" 
+        "pharokka.py -i {input} -o {output} -d {params.db} -t {threads} --meta --split"
 
 
 
 ###############################  Viridic #############################################################
 rule viridic_all_genomes:
+    """
+    Compute pairwise intergenomic similarities among all HQ phage genomes
+    using the VIRIDIC singularity container, used downstream to define
+    viral clusters/OTUs (vOTUs).
+    """
     input:
         "../results/assembly/viral/all_HQ_viral_contigs.fasta"
     output:
@@ -34,6 +54,8 @@ rule viridic_all_genomes:
         "envs/viridic.yaml"
     params:
         viridic_sing="../resources/databases/containers/viridic_v1.1",
+        # NOTE: absolute path required by VIRIDIC's singularity bind mounts;
+        # update this if the pipeline is relocated to a different directory.
         abs_path="/work/FAC/FBM/DMF/pengel/general_data/mndiaye1/20241210_PHIFIDO_AmpliPhage_pipeline/workflow"
     resources:
         account = "pengel_beemicrophage",
@@ -48,6 +70,11 @@ rule viridic_all_genomes:
 
 
 rule parse_viridic:
+    """
+    Parse VIRIDIC's intergenomic similarity matrix and combine it with
+    inStrain-derived viral community composition data to produce the
+    final viral clustering/pangenome summary table.
+    """
     input:
         viridic="../results/pangenomics/viruses/viridic/",
         vircom="../results/inStrain/aggregated_data_sing"

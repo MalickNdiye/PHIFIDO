@@ -1,5 +1,28 @@
+"""
+Snakemake Workflow for PacBio Full-Length 16S rRNA Amplicon Sequencing
+=======================================================================
+This workflow processes PacBio HiFi 16S amplicon reads to track total
+community composition (Bifidobacterium strains + any contaminants) over
+the course of the passaging experiment, independent of the shotgun
+metagenomic viral pipeline defined in the main Snakefile.
+
+Steps:
+1. Read pre-processing (primer trimming, length/quality filtering)
+2. Denoising into Amplicon Sequence Variants (ASVs) with DADA2
+3. Merging ASV tables across sequencing runs and assigning taxonomy
+4. Formatting qPCR data (used to convert relative to absolute abundances)
+5. Combining ASV + qPCR + metadata into final community composition tables
+
+Note: paths in this file are relative to a "../PacBio_16s/" subdirectory,
+separate from the "../results/" and "../data/" trees used elsewhere in
+the pipeline.
+"""
 
 rule preoprocess_raw_reads:
+    """
+    Trim primers and filter raw PacBio 16S CCS reads by length and expected
+    error (maxEE), producing cleaned reads ready for denoising.
+    """
     input:
         raw_reads = lambda wildcards: config["Raw_16s_reads"][wildcards.Experiment]
     output:
@@ -35,6 +58,10 @@ rule preoprocess_raw_reads:
         """
 
 rule denoising:
+    """
+    Denoise preprocessed reads into ASVs using DADA2 (via the r_momsane env),
+    with taxonomy assigned against the Bifidobacterium 16S reference database.
+    """
     input:
         preproc="../PacBio_16s/results/prepocessing/{Experiment}"
     output:
@@ -74,6 +101,10 @@ rule denoising:
         """
 
 rule Merge_ASV_tabs:
+    """
+    Merge per-experiment ASV tables into a single ASV table and assign
+    genus- and species-level taxonomy across all sequencing runs.
+    """
     input:
         expand("../PacBio_16s/results/denoising/{Experiment}", Experiment=config["Raw_16s_reads"].keys())
     output:
@@ -98,6 +129,11 @@ rule Merge_ASV_tabs:
          {output}"
 
 rule format_16s_qpcr:
+    """
+    Format qPCR quantification data (using standard curves) for a given
+    experiment, so relative ASV abundances can later be converted to
+    absolute abundances.
+    """
     input:
         qPCR_data=config["qPCR_data"],
         std_curves=config["std_curves"],
@@ -121,8 +157,13 @@ rule format_16s_qpcr:
         {input.qPCR_data} \
         {wildcards.Experiment} \
         {output}"
-    
+
 rule format_community_data:
+    """
+    Combine merged ASV tables, taxonomy, formatted qPCR data, and sample
+    metadata into the final per-experiment community composition table
+    used for downstream ecological analyses (e.g. alpha/beta diversity).
+    """
     input:
         ASV_tables="../PacBio_16s/results/merged_ASV_tables",
         metadata="../data/metadata/sample_metadata.csv",
