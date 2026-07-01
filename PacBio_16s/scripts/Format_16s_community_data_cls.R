@@ -377,7 +377,7 @@ tax_tab <- as.data.frame(tax_table(ps_clean))
 sp_vec <- setNames(tax_tab$Species, rownames(tax_tab))
 gn_vec <- setNames(tax_tab$Genus, rownames(tax_tab))
 
-mtdata_final <- as.data.frame(sample_data(ps_clean)) %>% rownames_to_column("sample")
+mtdata_final <- data.frame(sample_data(ps_clean)) %>% rownames_to_column("sample")
 
 build_comm_tab <- function(physeq) {
   as.data.frame(otu_table(physeq)) %>% 

@@ -141,12 +141,10 @@ rule format_community_data:
     params:
         ASV_table="../PacBio_16s/results/merged_ASV_tables/ASV_table_merged.rds",
         taxonomy="../PacBio_16s/results/merged_ASV_tables/ASV_Taxonomy_sp.RDS",
-        metadata="../data/metadata/sample_metadata.csv",
-        qPCR_data="../PacBio_16s/results/qPCR_formatted_{Experiment}/{Experiment}_Absolute_quant_final.csv"
+        metadata="../data/metadata/sample_metadata.csv"
     shell:
-        "Rscript --vanilla ../PacBio_16s/scripts/Format_16s_community_data_cls.R -a {params.ASV_table} \
+        "Rscript --vanilla ../PacBio_16s/scripts/Format_16s_community_data_final.R -a {params.ASV_table} \
          -t {params.taxonomy} \
          -m {params.metadata} \
-         -q {params.qPCR_data} \
          -e {wildcards.Experiment} \
          -o {output}"
