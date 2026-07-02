@@ -1,0 +1,12 @@
+name: get_PD_env
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - r-base=4.3
+  - r-argparse
+  - r-ape
+  - r-tidyverse
+  - r-picante
+  - bioconductor-ggtree

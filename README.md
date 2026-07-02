@@ -21,7 +21,7 @@ The workflow is organized as a `Snakefile` that includes several rule modules, e
 | `pangenome_phages.smk` | Phage gene annotation (Pharokka) and genome-genome similarity clustering (VIRIDIC) used to define viral OTUs (vOTUs) |
 | `instrain.smk` | Read mapping (Bowtie2) and strain/population-level profiling (inStrain) of representative vMAGs across all metagenomic samples |
 | `16s_workflow.smk` | PacBio full-length 16S rRNA amplicon processing (DADA2 denoising, taxonomy, qPCR-based absolute abundance) used to track total community composition over the 10 passages |
-| `compare_vOTUs.smk` | Pairwise vOTU comparisons (included by the Snakefile; not part of this annotation/cleanup pass — review separately before submission) |
+|||
 
 Rules are annotated in place with short docstrings describing what each step does and, where relevant, how it connects to neighboring steps.
 
@@ -29,7 +29,7 @@ Rules are annotated in place with short docstrings describing what each step doe
 
 - [Snakemake](https://snakemake.readthedocs.io/) with conda/mamba integration (each rule specifies its own `conda:` environment file under `envs/`)
 - Access to a SLURM cluster with the `pengel_beemicrophage` account, or equivalent — resource directives (`account`, `mem_mb`, `runtime`) are set for this cluster and will need adjusting for other systems
-- Reference databases configured in `../config/config.yaml` (Kraken2, CheckM, GTDB-Tk, CheckV, PhaBOX, GeNomad, DRAM, CRISPR spacers database) and a few tool databases hardcoded as absolute paths in individual rules (e.g. Pharokka DB in `pangenome_phages.smk`) — check these still resolve if the pipeline is moved or re-run on another system
+- Reference databases configured in `../config/config.yaml` (Kraken2, CheckM, GTDB-Tk, CheckV, PhaBOX, GeNomad, DRAM, CRISPR spacers database) and a few tool databases hardcoded as absolute paths in individual rules (e.g. Pharokka DB in `pangenome_phages.smk`) .
 - A `config.yaml` defining, at minimum: `samples` (per-experiment R1/R2 paths), `BiCom` (bacterial reference genomes), `sample_metadata`, and the various database paths referenced above
 
 ## Running the pipeline
@@ -40,7 +40,7 @@ From the `workflow/` directory (where the `Snakefile` lives):
 snakemake --use-conda --profile <cluster_profile> -j <n_jobs>
 ```
 
-`rule all` defines the default targets: the viral lifestyle/taxonomy tables, the aggregated inStrain profiles, the Kraken2 QC summary, and the mapping statistics. The 16S workflow and `compare_vOTUs.smk` outputs are not currently listed in `rule all` and must be requested explicitly by target path if needed.
+`rule all` defines the default targets: the viral lifestyle/taxonomy tables, the aggregated inStrain profiles, the Kraken2 QC summary, and the mapping statistics. The 16S workflow is not currently listed in `rule all` and must be requested explicitly by target path if needed.
 
 ## Key outputs
 

@@ -85,14 +85,14 @@ def get_files_commas(path, sep=",", remove_hidden=True):
 
 rule all:
     input:
-    # Final targets: running these five outputs pulls the entire DAG
-    # (viral identification, lifestyle/taxonomy, inStrain profiling,
-    # read-QC summary, and mapping stats) up to date.
-        "../results/vMAGs/lifestyle",
-        "../results/vMAGs/taxonomy",
-        "../results/inStrain/aggregated_data/",
-        "../results/data_validation/kraken2_output/Summary/all_samples_report.txt",
-        "../results/inStrain/mapping/all_mapping_stats.tsv"
+        "../results/pangenomics/bacteria/phylogeny/Bifido_species_tree_PD.csv",
+        "../results/pangenomics/viruses/viridic_parsed",
+        "../results/inStrain/aggregated_data_sing/",
+        "../results/data_validation/QC/read_count.tsv",
+        "../results/viral_identification/vibrant/summary/vibrant_identification_summary.tsv",
+        "../results/vMAGs/dereplication/dRep_summary_single.tsv",
+        "../results/vMAGs/vMAGs_summary.tsv"
+
 
 # ==============================================================================
 # SECTION 1: Data Validation & Preprocessing
@@ -319,7 +319,7 @@ rule parse_vibrant:
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 1000,
-        runtime = "10m"
+        runtime = "30m"
     threads: 1
     conda:
         "envs/base_R_env.yaml"

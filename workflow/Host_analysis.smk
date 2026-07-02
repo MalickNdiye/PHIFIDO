@@ -229,9 +229,9 @@ rule get_PD:
     resources:
         account = "pengel_beemicrophage",
         mem_mb = 5000,
-        runtime = "10m"
+        runtime = "1h"
     conda: 
-        "envs/base_R_env.yaml"
+        "envs/PD.yaml"
     threads: 1
     shell:
         "Rscript scripts/pangenomics/get_PD.R -i {input.tree}/Bifido_species_tree.treefile -o {output}"
