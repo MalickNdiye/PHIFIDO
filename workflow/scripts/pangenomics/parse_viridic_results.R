@@ -91,4 +91,4 @@ tree_upgma <- ladderize(tree_upgma)
 # -----------------------------
 # 8. Save tree in Newick format
 # -----------------------------
-write.tree(tree_upgma, file = file.path(output_dir, "vOTU_upgma_tree.nwk", sep=""))
+write.tree(tree_upgma, file = file.path(output_dir, "vOTU_upgma_tree.nwk"))
